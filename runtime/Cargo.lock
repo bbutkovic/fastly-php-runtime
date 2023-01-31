@@ -213,6 +213,7 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "fastly",
+ "lazy_static",
  "regex",
 ]
 
