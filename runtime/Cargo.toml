@@ -1,0 +1,14 @@
+[package]
+name = "fastly-php-runtime"
+version = "0.1.0"
+edition = "2021"
+
+publish = false
+build = "build.rs"
+
+[dependencies]
+fastly = "^0.8.6"
+
+[build-dependencies]
+bindgen = "0.53.1"
+regex = "1"

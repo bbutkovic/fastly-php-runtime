@@ -1,0 +1,6 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__.'/../vendor/autoload.php';
+
+// This command should provide ways to bundle the PHP code along with the runtime
