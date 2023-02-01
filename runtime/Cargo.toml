@@ -8,6 +8,7 @@ build = "build.rs"
 
 [dependencies]
 fastly = "^0.8.6"
+fastly-sys = "0.9.1"
 lazy_static = "1.4.0"
 
 [build-dependencies]

@@ -1,23 +1,60 @@
 use std::{ffi::CString, sync::Mutex};
 
-use fastly::{Error, Request, Response};
-use lazy_static::lazy_static;
+use fastly::{Error, Request, Response as FastlyResponse};
 mod php;
+mod response;
 
-lazy_static! {
-    static ref OUTPUT: Mutex<String> = Mutex::new(String::new());
-}
+use response::Response;
+
+const STREAMING: u32 = 1;
 
 #[fastly::main]
-fn main(_req: Request) -> Result<Response, Error> {
-    run_php("phpinfo();");
+fn main(req: Request) -> Result<FastlyResponse, Error> {
+    Response::initialize();
 
-    let body = OUTPUT.lock().unwrap().to_string();
+    run_php(req, "phpinfo();");
 
-    Ok(Response::from_body(body))
+    // let res = Response::new();
+
+    // (*RUNTIME.lock().unwrap()).set_response(res);
+
+    // *RESPONSE.lock().unwrap() = Some(&mut Response::new());
+
+    // *RESPONSE.lock().unwrap() = Some();
+
+    // let res = Response::new();
+    // set_current_response(res);
+
+    // ResponseHandle::try_from(5);
+    // let mut res = Response::new();
+
+    // run_php(req, &mut res, "phpinfo();");
+
+    // // let body = OUTPUT.lock().unwrap().to_string();
+
+    // Ok(res)
+    // Ok(Response::from_body(body))
+
+    let res = Response::get();
+    Ok(res)
 }
 
-pub fn run_php(code: &str) -> Option<String> {
+// pub fn init
+
+// fn embed_ub_write(
+//     _: i32,
+// ) -> unsafe extern "C" fn(str: *const ::std::os::raw::c_char, str_length: php::size_t) -> php::size_t
+// {
+//     |str: *const ::std::os::raw::c_char, str_length: php::size_t| -> php::size_t {
+//         let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
+
+//         *OUTPUT.lock().unwrap() += str;
+
+//         0
+//     }
+// }
+
+pub fn run_php(req: Request, code: &str) -> Option<String> {
     let code = CString::new(code).unwrap();
 
     unsafe {
@@ -49,9 +86,9 @@ unsafe extern "C" fn embed_write(
 ) -> php::size_t {
     let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
 
-    *OUTPUT.lock().unwrap() += str;
+    Response::write(str);
 
-    0
+    str_length
 }
 
 // TODO
