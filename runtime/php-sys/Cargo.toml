@@ -1,0 +1,11 @@
+[package]
+name = "php-sys"
+version = "0.1.0"
+edition = "2021"
+publish = false
+links = "php"
+
+
+[build-dependencies]
+bindgen = "0.53" # todo: investigate why compiling with latest (as of the time of writing v0.64) fails
+regex = "1"

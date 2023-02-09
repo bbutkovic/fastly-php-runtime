@@ -1,16 +1,6 @@
-[package]
-name = "fastly-php-runtime"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-publish = false
-build = "build.rs"
-
-[dependencies]
-fastly = "^0.8.6"
-fastly-sys = "0.9.1"
-lazy_static = "1.4.0"
-
-[build-dependencies]
-bindgen = "0.53.1"
-regex = "1"
+members = [
+    # "fastly-php-runtime",
+    "php-sys",
+]

@@ -1,0 +1,3 @@
+[submodule "runtime/php-sys/vendor/php"]
+	path = runtime/php-sys/vendor/php
+	url = git@github.com:bbutkovic/php-src.git

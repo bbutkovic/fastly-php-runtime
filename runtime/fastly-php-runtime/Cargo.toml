@@ -1,0 +1,11 @@
+[package]
+name = "fastly-php-runtime"
+version = "0.1.0"
+edition = "2021"
+
+publish = false
+
+[dependencies]
+fastly = "^0.8.6"
+fastly-sys = "0.9.1"
+lazy_static = "1.4.0"
