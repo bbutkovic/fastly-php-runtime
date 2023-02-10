@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::env::var;
 use std::io::Error;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitCode, ExitStatus};
 use std::{env, fs};
 
 use regex::Regex;
@@ -55,7 +55,7 @@ fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf)
         .blacklist_type("FP_NORMAL")
         .blacklist_type("max_align_t")
         .derive_default(true)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        // .parse_callbacks(Box::new(bindgen::CargoCallbacks)) // causes us to rebuild on every build
         .generate()
         .expect("Unable to generate bindings");
 
@@ -150,14 +150,13 @@ fn configure_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: 
 
     println!("Running configure: {:?}", configure);
 
-    let success = configure
+    let output = configure
         .output()
-        .unwrap_or_else(|err| panic!("{:?} failed ({})", configure, err))
-        .status
-        .success();
+        .unwrap_or_else(|err| panic!("{:?} failed ({})", configure, err));
 
-    if !success {
-        panic!("Failed to run configure");
+    // todo....
+    if output.status.code().unwrap() != 77 && output.status.code().unwrap() != 0 {
+        panic!("Failed to run configure: '{}'", output.status.to_string());
     }
 }
 
