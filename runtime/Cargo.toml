@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    # "fastly-php-runtime",
+    "fastly-php-runtime",
     "php-sys",
 ]

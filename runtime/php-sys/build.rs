@@ -9,16 +9,6 @@ use std::{env, fs};
 
 use regex::Regex;
 
-macro_rules! include_flag {
-    ($root:expr) => {
-        format!("-I{}", $root.clone().to_str().unwrap().to_string())
-    };
-
-    ($root:expr, $path:expr) => {
-        include_flag!($root.join($path))
-    };
-}
-
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let include = out_dir.join("include");
@@ -39,6 +29,16 @@ fn main() {
     println!("cargo:rerun-if-changed={}", wrapper);
 
     generate_bindings(wrapper, &include, out_dir.join("bindings.rs"));
+}
+
+macro_rules! include_flag {
+    ($root:expr) => {
+        format!("-I{}", $root.clone().to_str().unwrap().to_string())
+    };
+
+    ($root:expr, $path:expr) => {
+        include_flag!($root.join($path))
+    };
 }
 
 fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf) {
@@ -68,25 +68,15 @@ fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf)
     fs::write(out_file, bindings).unwrap();
 }
 
-fn compile_php(
-    source: &PathBuf,
-    wasi_sdk_sysroot: Option<PathBuf>,
-    compiler: Option<PathBuf>,
-) -> Result<String, Error> {
+fn compile_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: Option<PathBuf>) {
     println!("Configuring PHP");
-    configure_php(source, wasi_sdk_sysroot.clone(), compiler.clone());
+    configure_php(source, wasi_sdk_sysroot, compiler);
 
     println!("Building PHP");
-    build_php(source, wasi_sdk_sysroot.clone(), compiler.clone());
-
-    Ok("".to_string())
+    build_php(source);
 }
 
-fn configure_php(
-    source: &PathBuf,
-    wasi_sdk_sysroot: Option<PathBuf>,
-    compiler: Option<PathBuf>,
-) -> bool {
+fn configure_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: Option<PathBuf>) {
     let mut buildconf = Command::new("./buildconf");
     buildconf.arg("--force");
     buildconf.current_dir(&source);
@@ -153,18 +143,18 @@ fn configure_php(
 
     println!("Running configure: {:?}", configure);
 
-    configure
+    let success = configure
         .output()
         .unwrap_or_else(|err| panic!("{:?} failed ({})", configure, err))
         .status
-        .success()
+        .success();
+
+    if !success {
+        panic!("Failed to run configure");
+    }
 }
 
-fn build_php(
-    source: &PathBuf,
-    wasi_sdk_sysroot: Option<PathBuf>,
-    compiler: Option<PathBuf>,
-) -> bool {
+fn build_php(source: &PathBuf) {
     let mut build = Command::new("make");
     build.current_dir(&source);
     build.arg("libphp.la");
@@ -177,7 +167,9 @@ fn build_php(
 
     println!("Output: {:?}", output);
 
-    output.status.success()
+    if !output.status.success() {
+        panic!("Failed to build PHP");
+    }
 }
 
 fn get_wasi_sdk() -> (Option<PathBuf>, Option<PathBuf>) {
