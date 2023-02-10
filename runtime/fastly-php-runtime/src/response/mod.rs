@@ -39,6 +39,16 @@ impl Response {
             .write_str(str);
     }
 
+    pub fn send_header(name: &str, value: &str) {
+        RESPONSE
+            .lock()
+            .unwrap()
+            .response
+            .as_mut()
+            .unwrap()
+            .append_header(name, value);
+    }
+
     // pub fn write(str: &str) {
     //     Self::get_current_response().get_body_mut().write_str(str);
     //     // // let body = self.response.as_mut().unwrap().get_body_mut();
