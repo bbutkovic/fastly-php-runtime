@@ -1,19 +1,48 @@
 // use std::ffi::CString;
 
+use std::ffi::CString;
+
 use fastly::{Error, Request, Response as FastlyResponse};
+
+use php_sys::*;
 // mod response;
 
 // use response::Response;
 
-#[fastly::main]
-fn main(req: Request) -> Result<FastlyResponse, Error> {
-    // Response::initialize();
+// #[fastly::main]
+// fn main(req: Request) -> Result<FastlyResponse, Error> {
+//     // Response::initialize();
 
-    // run_php(req, "phpinfo();");
+//     // run_php(req, "phpinfo();");
 
-    let res = FastlyResponse::from_status(200);
-    // let res = Response::get();
-    Ok(res)
+//     let res = FastlyResponse::from_status(200);
+//     // let res = Response::get();
+//     Ok(res)
+// }
+
+fn main() {
+    println!("Hello, world!");
+
+    unsafe { run_php() }
+}
+
+unsafe fn run_php() {
+    php_embed_module.ub_write = Some(embed_write);
+    php_embed_init(0, std::ptr::null_mut());
+
+    zend_eval_string(
+        CString::new("echo 'Hello, world!';").unwrap().into_raw(),
+        std::ptr::null_mut(),
+        CString::new("fastly-php").unwrap().into_raw(),
+    );
+}
+
+unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: size_t) -> size_t {
+    let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
+
+    println!("a: {}", str);
+
+    str_length
 }
 
 // pub fn run_php(req: Request, code: &str) -> Option<String> {

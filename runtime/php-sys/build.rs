@@ -15,13 +15,13 @@ fn main() {
 
     cp_r("vendor/php", &include);
 
-    let (wasi_sdk_sysroot, compiler) = get_wasi_sdk();
+    let (wasi_sdk_sysroot, compiler, ranlib, ar, nm) = get_wasi_sdk();
 
-    compile_php(&include, wasi_sdk_sysroot, compiler);
+    compile_php(&include, wasi_sdk_sysroot, compiler, ranlib, ar, nm);
 
     println!(
         "cargo:rustc-link-search={}",
-        include.as_path().to_str().unwrap()
+        include.join("libs").as_path().to_str().unwrap()
     );
 
     let wrapper = "wrapper.h".to_string();
@@ -75,52 +75,29 @@ fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf)
     fs::write(out_file, bindings).unwrap();
 }
 
-fn compile_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: Option<PathBuf>) {
+fn compile_php(
+    source: &PathBuf,
+    wasi_sdk_sysroot: Option<PathBuf>,
+    compiler: Option<PathBuf>,
+    ranlib: Option<PathBuf>,
+    ar: Option<PathBuf>,
+    nm: Option<PathBuf>
+) {
     println!("Configuring PHP");
-    configure_php(source, wasi_sdk_sysroot, compiler);
+    let build_env = get_build_env(wasi_sdk_sysroot, compiler, ranlib, ar, nm);
+    configure_php(source, &build_env);
 
     println!("Building PHP");
-    build_php(source);
+    build_php(source, &build_env);
 }
 
-fn configure_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: Option<PathBuf>) {
+fn configure_php(source: &PathBuf, build_env: &HashMap<String, String>) {
     let mut buildconf = Command::new("./buildconf");
     buildconf.arg("--force");
     buildconf.current_dir(&source);
 
     if !buildconf.status().unwrap().success() {
         panic!("Failed to run buildconf");
-    }
-
-    let mut cflags = vec![
-        "-O0".to_string(),
-        "-D_WASI_EMULATED_GETPID".to_string(),
-        "-D_WASI_EMULATED_SIGNAL".to_string(),
-        "-D_WASI_EMULATED_PROCESS_CLOCKS".to_string(),
-        "-D_POSIX_SOURCE=1".to_string(),
-        "-D_GNU_SOURCE=1".to_string(),
-        "-DHAVE_FORK=0".to_string(),
-        "-DWASM_WASI".to_string(),
-    ];
-
-    let mut ldflags = vec![
-        "-lwasi-emulated-getpid".to_string(),
-        "-lwasi-emulated-signal".to_string(),
-        "-lwasi-emulated-process-clocks".to_string(),
-    ];
-
-    if let Some(wasi_sdk_sysroot) = wasi_sdk_sysroot {
-        let wasi_sdk_sysroot = wasi_sdk_sysroot.to_str().unwrap();
-        let sysroot_flag = format!("--sysroot={}", wasi_sdk_sysroot);
-        cflags.push(sysroot_flag.clone());
-        ldflags.push(sysroot_flag);
-    }
-
-    let mut build_env =
-        HashMap::from([("CFLAGS", cflags.join(" ")), ("LDFLAGS", ldflags.join(" "))]);
-
-    if let Some(compiler) = compiler {
-        build_env.insert("CC", compiler.to_str().unwrap().to_string());
     }
 
     let mut configure = Command::new("./configure");
@@ -146,7 +123,7 @@ fn configure_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: 
         .arg("--without-pdo-sqlite")
         .arg("--enable-phar=static")
         .arg("--enable-pdo=static")
-        .envs(&build_env);
+        .envs(build_env);
 
     println!("Running configure: {:?}", configure);
 
@@ -160,10 +137,66 @@ fn configure_php(source: &PathBuf, wasi_sdk_sysroot: Option<PathBuf>, compiler: 
     }
 }
 
-fn build_php(source: &PathBuf) {
+fn get_build_env(
+    wasi_sdk_sysroot: Option<PathBuf>,
+    compiler: Option<PathBuf>,
+    ranlib: Option<PathBuf>,
+    ar: Option<PathBuf>,
+    nm: Option<PathBuf>
+) -> HashMap<String, String> {
+    let mut cflags = vec![
+        "-O3".to_string(),
+        "-D_WASI_EMULATED_GETPID".to_string(),
+        "-D_WASI_EMULATED_SIGNAL".to_string(),
+        "-D_WASI_EMULATED_PROCESS_CLOCKS".to_string(),
+        "-D_POSIX_SOURCE=1".to_string(),
+        "-D_GNU_SOURCE=1".to_string(),
+        "-DHAVE_FORK=0".to_string(),
+        "-DWASM_WASI".to_string(),
+    ];
+
+    let mut ldflags = vec![
+        "-lwasi-emulated-getpid".to_string(),
+        "-lwasi-emulated-signal".to_string(),
+        "-lwasi-emulated-process-clocks".to_string(),
+    ];
+
+    if let Some(wasi_sdk_sysroot) = wasi_sdk_sysroot {
+        let wasi_sdk_sysroot = wasi_sdk_sysroot.to_str().unwrap();
+        let sysroot_flag = format!("--sysroot={}", wasi_sdk_sysroot);
+        cflags.push(sysroot_flag.clone());
+        ldflags.push(sysroot_flag);
+    }
+
+    let mut build_env = HashMap::from([
+        ("CFLAGS".to_string(), cflags.join(" ")),
+        ("LDFLAGS".to_string(), ldflags.join(" ")),
+    ]);
+
+    if let Some(compiler) = compiler {
+        build_env.insert("CC".to_string(), compiler.to_str().unwrap().to_string());
+    }
+
+    if let Some(ranlib) = ranlib {
+        build_env.insert("RANLIB".to_string(), ranlib.to_str().unwrap().to_string());
+    }
+
+    if let Some(ar) = ar {
+        build_env.insert("AR".to_string(), ar.to_str().unwrap().to_string());
+    }
+
+    if let Some(nm) = nm {
+        build_env.insert("NM".to_string(), nm.to_str().unwrap().to_string());
+    }
+
+    build_env
+}
+
+fn build_php(source: &PathBuf, build_env: &HashMap<String, String>) {
     let mut build = Command::new("make");
     build.current_dir(&source);
     build.arg("libphp.la");
+    build.envs(build_env);
 
     println!("Building: {:?}", build);
 
@@ -178,7 +211,13 @@ fn build_php(source: &PathBuf) {
     }
 }
 
-fn get_wasi_sdk() -> (Option<PathBuf>, Option<PathBuf>) {
+fn get_wasi_sdk() -> (
+    Option<PathBuf>,
+    Option<PathBuf>,
+    Option<PathBuf>,
+    Option<PathBuf>,
+    Option<PathBuf>
+) {
     let sysroot = var("PHP_WASI_SYSROOT")
         .or(var("WASI_SYSROOT"))
         .ok()
@@ -197,7 +236,34 @@ fn get_wasi_sdk() -> (Option<PathBuf>, Option<PathBuf>) {
                 .map(|path| format!("{}/bin/clang", path))
         });
 
-    (sysroot.map(PathBuf::from), compiler.map(PathBuf::from))
+    let ranlib = var("PHP_WASI_RANLIB")
+        .or(var("WASI_SDK_RANLIB"))
+        .ok()
+        .or_else(|| {
+            var("WASI_SDK_PATH")
+                .ok()
+                .map(|path| format!("{}/bin/llvm-ranlib", path))
+        });
+
+    let ar = var("PHP_WASI_AR").or(var("WASI_SDK_AR")).ok().or_else(|| {
+        var("WASI_SDK_PATH")
+            .ok()
+            .map(|path| format!("{}/bin/llvm-ar", path))
+    });
+
+    let nm = var("PHP_WASI_NM").or(var("WASI_SDK_NM")).ok().or_else(|| {
+        var("WASI_SDK_PATH")
+            .ok()
+            .map(|path| format!("{}/bin/llvm-nm", path))
+    });
+
+    (
+        sysroot.map(PathBuf::from),
+        compiler.map(PathBuf::from),
+        ranlib.map(PathBuf::from),
+        ar.map(PathBuf::from),
+        nm.map(PathBuf::from),
+    )
 }
 
 // todo
