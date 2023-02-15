@@ -3,4 +3,6 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
+mod emulated;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

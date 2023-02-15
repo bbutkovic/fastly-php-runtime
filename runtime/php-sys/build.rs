@@ -24,6 +24,41 @@ fn main() {
         include.join("libs").as_path().to_str().unwrap()
     );
 
+    // todo...
+    if let Some(libclang_rt) = var("PHP_WASI_LIBCLANG_RT").ok() {
+        let libclang_rt_path = PathBuf::from(libclang_rt);
+        if libclang_rt_path.exists() {
+            if libclang_rt_path.is_file() {
+                let libclang_rt_filename = libclang_rt_path.file_name().unwrap().to_str().unwrap();
+                println!("cargo:rustc-link-lib=static=:{}", libclang_rt_filename);
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    libclang_rt_path.parent().unwrap().to_str().unwrap()
+                );
+            } else {
+                println!("cargo:rustc-link-lib=static=clang_rt");
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    libclang_rt_path.to_str().unwrap()
+                );
+            }
+        }
+    }
+
+    // todo...
+    if let Some(emulators_path) = var("PHP_WASI_EMULATORS_PATH").ok() {
+        let emulators_path = PathBuf::from(emulators_path);
+        if emulators_path.exists() {
+            println!(
+                "cargo:rustc-link-search=native={}",
+                emulators_path.to_str().unwrap()
+            );
+        }
+
+        println!("cargo:rustc-link-lib=static=wasi-emulated-getpid");
+        println!("cargo:rustc-link-lib=static=wasi-emulated-process-clocks");
+    }
+
     let wrapper = "wrapper.h".to_string();
     println!("cargo:rustc-link-lib=php");
     println!("cargo:rerun-if-changed={}", wrapper);
@@ -81,7 +116,7 @@ fn compile_php(
     compiler: Option<PathBuf>,
     ranlib: Option<PathBuf>,
     ar: Option<PathBuf>,
-    nm: Option<PathBuf>
+    nm: Option<PathBuf>,
 ) {
     println!("Configuring PHP");
     let build_env = get_build_env(wasi_sdk_sysroot, compiler, ranlib, ar, nm);
@@ -123,6 +158,7 @@ fn configure_php(source: &PathBuf, build_env: &HashMap<String, String>) {
         .arg("--without-pdo-sqlite")
         .arg("--enable-phar=static")
         .arg("--enable-pdo=static")
+        .arg("--with-pic")
         .envs(build_env);
 
     println!("Running configure: {:?}", configure);
@@ -142,7 +178,7 @@ fn get_build_env(
     compiler: Option<PathBuf>,
     ranlib: Option<PathBuf>,
     ar: Option<PathBuf>,
-    nm: Option<PathBuf>
+    nm: Option<PathBuf>,
 ) -> HashMap<String, String> {
     let mut cflags = vec![
         "-O3".to_string(),
@@ -153,12 +189,14 @@ fn get_build_env(
         "-D_GNU_SOURCE=1".to_string(),
         "-DHAVE_FORK=0".to_string(),
         "-DWASM_WASI".to_string(),
+        "-fPIC".to_string(),
     ];
 
     let mut ldflags = vec![
         "-lwasi-emulated-getpid".to_string(),
         "-lwasi-emulated-signal".to_string(),
         "-lwasi-emulated-process-clocks".to_string(),
+        "-static".to_string(),
     ];
 
     if let Some(wasi_sdk_sysroot) = wasi_sdk_sysroot {
@@ -195,6 +233,9 @@ fn get_build_env(
 fn build_php(source: &PathBuf, build_env: &HashMap<String, String>) {
     let mut build = Command::new("make");
     build.current_dir(&source);
+    if let Some(jobs) = var("NUM_JOBS").ok() {
+        build.arg(format!("-j{}", jobs));
+    }
     build.arg("libphp.la");
     build.envs(build_env);
 
@@ -216,7 +257,7 @@ fn get_wasi_sdk() -> (
     Option<PathBuf>,
     Option<PathBuf>,
     Option<PathBuf>,
-    Option<PathBuf>
+    Option<PathBuf>,
 ) {
     let sysroot = var("PHP_WASI_SYSROOT")
         .or(var("WASI_SYSROOT"))
@@ -276,7 +317,6 @@ fn cp_r(from: impl AsRef<Path>, to: impl AsRef<Path>) {
             fs::create_dir_all(&to).unwrap();
             cp_r(&from, &to);
         } else {
-            // println!("{} => {}", from.display(), to.display());
             fs::copy(&from, &to).unwrap();
         }
     }
