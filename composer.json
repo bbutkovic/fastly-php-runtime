@@ -14,5 +14,8 @@
             "email": "dev@bbutkovic.com"
         }
     ],
-    "require": {}
+    "require": {
+        "symfony/console": "^5.4",
+        "symfony/process": "^5.4"
+    }
 }

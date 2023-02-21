@@ -211,6 +211,7 @@ dependencies = [
 name = "fastly-php-runtime"
 version = "0.1.0"
 dependencies = [
+ "bytes 1.4.0",
  "fastly",
  "fastly-sys 0.9.1",
  "lazy_static",

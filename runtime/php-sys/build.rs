@@ -45,7 +45,7 @@ fn main() {
         }
     }
 
-    // todo...
+    // todo....
     if let Some(emulators_path) = var("PHP_WASI_EMULATORS_PATH").ok() {
         let emulators_path = PathBuf::from(emulators_path);
         if emulators_path.exists() {
@@ -180,7 +180,19 @@ fn get_build_env(
     ar: Option<PathBuf>,
     nm: Option<PathBuf>,
 ) -> HashMap<String, String> {
+    let php_debug = env::var_os("PHP_DEBUG").map(|d| d == "1").unwrap_or(false);
+    let optimization_level: String = env::var_os("OPT_LEVEL")
+        .map_or_else(
+            || match php_debug {
+                true => Some("0".to_string()),
+                false => Some("3".to_string()),
+            },
+            |l| Some(l.to_str().unwrap().to_string()),
+        )
+        .unwrap();
+
     let mut cflags = vec![
+        // format!("-O{}", optimization_level).to_string(),
         "-O3".to_string(),
         "-D_WASI_EMULATED_GETPID".to_string(),
         "-D_WASI_EMULATED_SIGNAL".to_string(),
@@ -204,6 +216,10 @@ fn get_build_env(
         let sysroot_flag = format!("--sysroot={}", wasi_sdk_sysroot);
         cflags.push(sysroot_flag.clone());
         ldflags.push(sysroot_flag);
+    }
+
+    if php_debug {
+        cflags.push("-g".to_string());
     }
 
     let mut build_env = HashMap::from([
