@@ -1,0 +1,9 @@
+{
+    "rust-analyzer.server.extraEnv": {
+        // todo: clean up this
+        "WASI_SDK_PATH": "/opt/wasi-sdk",
+        "PHP_WASI_LIBCLANG_RT": "/opt/wasi-sdk/lib/clang/15.0.7/lib/wasi",
+        "PHP_WASI_EMULATORS_PATH": "/opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi",
+        "PHP_DEBUG": "1",
+    }
+}

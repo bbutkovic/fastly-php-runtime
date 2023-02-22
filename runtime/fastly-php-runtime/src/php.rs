@@ -50,7 +50,7 @@ pub fn compile_from_stdin() -> *mut zend_op_array {
                 handle: std::ptr::null_mut(),
             },
         },
-        filename: unsafe { init_string(filename.as_ptr(), filename_len as u32, true) },
+        filename: unsafe { init_string(filename.as_ptr(), filename_len, true) },
         opened_path: std::ptr::null_mut(),
         type_: zend_stream_type_ZEND_HANDLE_STREAM as u8,
         primary_script: true,
@@ -105,7 +105,7 @@ pub fn compile_from_stdin() -> *mut zend_op_array {
 // }
 
 #[no_mangle]
-unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: size_t) -> size_t {
+unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: usize) -> usize {
     let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
 
     println!("a: {}", str);
@@ -117,8 +117,8 @@ unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length:
 unsafe extern "C" fn stdin_reader(
     handle: *mut ::std::os::raw::c_void,
     buf: *mut ::std::os::raw::c_char,
-    len: size_t,
-) -> ssize_t {
+    len: usize,
+) -> isize {
     println!("reader: {:?} {:?} {:?}", handle, buf, len);
 
     if len == 0 {
@@ -130,16 +130,16 @@ unsafe extern "C" fn stdin_reader(
 
     std::ptr::copy_nonoverlapping(stdin_buf.as_ptr(), buffer.as_mut_ptr(), stdin_buf.len());
 
-    stdin_buf.len() as ssize_t
+    stdin_buf.len() as isize
 }
 
 #[no_mangle]
-unsafe extern "C" fn stdin_fsizer(_handle: *mut ::std::os::raw::c_void) -> size_t {
+unsafe extern "C" fn stdin_fsizer(_handle: *mut ::std::os::raw::c_void) -> usize {
     let size = STDIN.lock().unwrap().len();
 
     println!("fsizer: {}", size);
 
-    size as size_t
+    size
 }
 
 #[no_mangle]

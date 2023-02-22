@@ -1,3 +1,4 @@
+#define WASM_WASI 1
 #include <Zend/zend.h>
 #include <main/php.h>
 #include <ext/phar/php_phar.h>

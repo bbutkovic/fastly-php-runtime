@@ -2,9 +2,8 @@ extern crate bindgen;
 
 use std::collections::HashMap;
 use std::env::var;
-use std::io::Error;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode, ExitStatus};
+use std::process::Command;
 use std::{env, fs};
 
 use regex::Regex;
@@ -17,7 +16,7 @@ fn main() {
 
     let (wasi_sdk_sysroot, compiler, ranlib, ar, nm) = get_wasi_sdk();
 
-    compile_php(&include, wasi_sdk_sysroot, compiler, ranlib, ar, nm);
+    compile_php(&include, &wasi_sdk_sysroot, &compiler, &ranlib, &ar, &nm);
 
     println!(
         "cargo:rustc-link-search={}",
@@ -63,7 +62,12 @@ fn main() {
     println!("cargo:rustc-link-lib=php");
     println!("cargo:rerun-if-changed={}", wrapper);
 
-    generate_bindings(wrapper, &include, out_dir.join("bindings.rs"));
+    generate_bindings(
+        wrapper,
+        &include,
+        out_dir.join("bindings.rs"),
+        wasi_sdk_sysroot,
+    );
 }
 
 macro_rules! include_flag {
@@ -76,19 +80,33 @@ macro_rules! include_flag {
     };
 }
 
-fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf) {
+fn generate_bindings(
+    wrapper: String,
+    sources_root: &PathBuf,
+    out_file: PathBuf,
+    wasi_sdk_sysroot: Option<PathBuf>,
+) {
+    if !var("CLANG_PATH").is_ok() {
+        if let Some(wasi_sdk_sysroot) = wasi_sdk_sysroot {
+            std::env::set_var(
+                "CLANG_PATH",
+                format!("{}/bin/clang", wasi_sdk_sysroot.to_str().unwrap()),
+            );
+        }
+    }
+
     let bindings = bindgen::Builder::default()
         .header(wrapper)
         .clang_arg(include_flag!(sources_root))
         .clang_arg(include_flag!(sources_root, "main"))
         .clang_arg(include_flag!(sources_root, "Zend"))
         .clang_arg(include_flag!(sources_root, "TSRM"))
-        .blacklist_type("FP_NAN")
-        .blacklist_type("FP_INFINITE")
-        .blacklist_type("FP_ZERO")
-        .blacklist_type("FP_SUBNORMAL")
-        .blacklist_type("FP_NORMAL")
-        .blacklist_type("max_align_t")
+        .blocklist_type("FP_NAN")
+        .blocklist_type("FP_INFINITE")
+        .blocklist_type("FP_ZERO")
+        .blocklist_type("FP_SUBNORMAL")
+        .blocklist_type("FP_NORMAL")
+        .blocklist_type("max_align_t")
         .derive_default(true)
         // .parse_callbacks(Box::new(bindgen::CargoCallbacks)) // causes us to rebuild on every build
         .generate()
@@ -112,11 +130,11 @@ fn generate_bindings(wrapper: String, sources_root: &PathBuf, out_file: PathBuf)
 
 fn compile_php(
     source: &PathBuf,
-    wasi_sdk_sysroot: Option<PathBuf>,
-    compiler: Option<PathBuf>,
-    ranlib: Option<PathBuf>,
-    ar: Option<PathBuf>,
-    nm: Option<PathBuf>,
+    wasi_sdk_sysroot: &Option<PathBuf>,
+    compiler: &Option<PathBuf>,
+    ranlib: &Option<PathBuf>,
+    ar: &Option<PathBuf>,
+    nm: &Option<PathBuf>,
 ) {
     println!("Configuring PHP");
     let build_env = get_build_env(wasi_sdk_sysroot, compiler, ranlib, ar, nm);
@@ -174,11 +192,11 @@ fn configure_php(source: &PathBuf, build_env: &HashMap<String, String>) {
 }
 
 fn get_build_env(
-    wasi_sdk_sysroot: Option<PathBuf>,
-    compiler: Option<PathBuf>,
-    ranlib: Option<PathBuf>,
-    ar: Option<PathBuf>,
-    nm: Option<PathBuf>,
+    wasi_sdk_sysroot: &Option<PathBuf>,
+    compiler: &Option<PathBuf>,
+    ranlib: &Option<PathBuf>,
+    ar: &Option<PathBuf>,
+    nm: &Option<PathBuf>,
 ) -> HashMap<String, String> {
     let php_debug = env::var_os("PHP_DEBUG").map(|d| d == "1").unwrap_or(false);
     let optimization_level: String = env::var_os("OPT_LEVEL")
