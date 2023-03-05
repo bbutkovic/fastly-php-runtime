@@ -4,4 +4,9 @@
 /runtime/dependencies/lib/*
 !/runtime/dependencies/lib/.gitkeep
 /runtime/target/*
+/runtime/deps/
 /tmp
+runtime.*
+bundle.*
+*.log
+.vscode/settings.json

@@ -7,5 +7,6 @@ links = "php"
 
 
 [build-dependencies]
-bindgen = "0.63" # todo: investigate why compiling with latest (as of the time of writing v0.64) fails
+bindgen = "0.63"
 regex = "1"
+php-setup = { path = "../php-setup" }

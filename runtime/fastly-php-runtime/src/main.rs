@@ -10,31 +10,21 @@ use php::compile_from_stdin;
 use crate::php::execute_compiled;
 use bytes::Bytes;
 
+mod php;
 mod util;
 
 thread_local! {
     static OP_ARRAY: RefCell<*mut php_sys::zend_op_array> = RefCell::new(null_mut());
 }
 
-// #[fastly::main]
-// fn main(req: Request) -> Result<FastlyResponse, Error> {
-//     // Response::initialize();
-
-//     // run_php(req, "phpinfo();");
-
-//     let res = FastlyResponse::from_status(200);
-//     // let res = Response::get();
-//     Ok(res)
-// }
-
-mod php;
-
-fn main() {
-    println!("main");
-
+#[fastly::main]
+fn main(req: Request) -> Result<FastlyResponse, Error> {
     OP_ARRAY.with(|op_array| {
         execute_compiled(*op_array.borrow());
     });
+
+    let res = FastlyResponse::from_status(200);
+    Ok(res)
 }
 
 #[export_name = "wizer.initialize"]

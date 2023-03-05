@@ -2,5 +2,11 @@
 
 members = [
     "fastly-php-runtime",
+    "fastly-ce-module",
     "php-sys",
 ]
+
+
+[patch.crates-io]
+# patch for wasm compilation
+ext-php-rs = { git = "https://github.com/bbutkovic/ext-php-rs", branch = "wasm-target" }

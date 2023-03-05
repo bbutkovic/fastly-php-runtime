@@ -4,3 +4,4 @@
 /pkg
 *.wat
 *.phar
+debugger*

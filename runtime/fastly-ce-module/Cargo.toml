@@ -1,0 +1,9 @@
+[package]
+name = "fastly-ce-module"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ext-php-rs = { version = "*" }
+fastly = "^0.8.6"

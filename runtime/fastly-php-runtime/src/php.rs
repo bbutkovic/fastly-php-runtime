@@ -6,6 +6,8 @@ use std::{
 };
 
 use bytes::Bytes;
+use ext_php_rs;
+use fastly_ce_module;
 use lazy_static::lazy_static;
 use php_sys::*;
 
@@ -24,9 +26,46 @@ pub fn execute_compiled(op_array: *mut zend_op_array) {
 
 pub fn init() {
     unsafe {
+        php_embed_module.startup = Some(php_embed_startup);
         php_embed_module.ub_write = Some(embed_write);
+        // php_embed_module.sapi_error
         php_embed_init(0, null_mut());
     }
+}
+
+// todo: errors
+// ZEND_API ZEND_COLD void zend_error(int type, const char *format, ...) {
+// 	zend_string *filename;
+// 	uint32_t lineno;
+// 	va_list args;
+
+// 	get_filename_lineno(type, &filename, &lineno);
+// 	va_start(args, format);
+// 	zend_error_va_list(type, filename, lineno, format, args);
+// 	va_end(args);
+// }
+
+// workaround for loading the fastly-ce module, todo: implement our own sapi
+unsafe extern "C" fn php_embed_startup(
+    php_sapi_module: *mut _sapi_module_struct,
+) -> ::std::os::raw::c_int {
+    let ce_module_entry = fastly_ce_module::get_module();
+
+    php_module_startup(php_sapi_module, convert(ce_module_entry), 1);
+
+    0 as ::std::os::raw::c_int
+}
+// unsafe extern "C" fn php_embed_startup() {}
+// static int php_embed_startup(sapi_module_struct *sapi_module)
+// {
+// 	if (php_module_startup(sapi_module, NULL, 0) == FAILURE) {
+// 		return FAILURE;
+// 	}
+// 	return SUCCESS;
+// }
+
+fn convert(bv: *mut ext_php_rs::ffi::_zend_module_entry) -> *mut _zend_module_entry {
+    unsafe { &mut *(bv as *mut ext_php_rs::ffi::_zend_module_entry as *mut _zend_module_entry) }
 }
 
 pub fn compile_from_stdin() -> *mut zend_op_array {
@@ -108,7 +147,7 @@ pub fn compile_from_stdin() -> *mut zend_op_array {
 unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: usize) -> usize {
     let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
 
-    println!("a: {}", str);
+    println!("ub_write: {}", str);
 
     str_length
 }

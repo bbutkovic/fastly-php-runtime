@@ -11,4 +11,5 @@ fastly = "^0.8.6"
 fastly-sys = "0.9.1"
 lazy_static = "1.4.0"
 php-sys = { path = "../php-sys" }
-# phper = "0.10.2"
+fastly-ce-module = { path = "../fastly-ce-module" }
+ext-php-rs = "*"
