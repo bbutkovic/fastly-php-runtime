@@ -37,7 +37,7 @@ fn main(req: Request) -> Result<FastlyResponse, Error> {
 pub extern "C" fn init() {
     crate::php::init();
 
-    let op_array = compile_from_stdin(php::MainFileType::Phar);
+    let op_array = compile_from_stdin();
 
     OP_ARRAY.with(|op_array_cell| {
         *op_array_cell.borrow_mut() = op_array;
