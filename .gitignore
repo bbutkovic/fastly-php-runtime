@@ -10,3 +10,5 @@ runtime.*
 bundle.*
 *.log
 .vscode/settings.json
+pack.php
+debugger*

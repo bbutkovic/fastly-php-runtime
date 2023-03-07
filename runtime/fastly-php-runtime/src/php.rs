@@ -1,7 +1,7 @@
 use core::slice;
 use std::{
     io::{self, Read},
-    ptr::null_mut,
+    ptr::{null_mut, NonNull},
     sync::Mutex,
 };
 
@@ -21,7 +21,21 @@ pub fn execute_compiled(op_array: *mut zend_op_array) {
     println!("running");
     unsafe { zend_execute(op_array, null_mut()) };
 
+    print_exception();
+
     println!("php code ran");
+}
+
+fn print_exception() {
+    let mut globals = unsafe { executor_globals };
+
+    let mut exception_ptr = std::ptr::null_mut();
+    std::mem::swap(&mut exception_ptr, &mut globals.exception);
+
+    let mut exception = unsafe { NonNull::new_unchecked(exception_ptr.as_mut().unwrap()) };
+    println!("exception: {:?}", exception);
+
+    unsafe { zend_exception_error(exception.as_mut(), 1) };
 }
 
 pub fn init() {

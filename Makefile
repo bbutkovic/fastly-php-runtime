@@ -51,6 +51,11 @@ CFLAGS :=\
   -fPIC \
   -static \
   --sysroot=${PHP_WASI_SDK_SYSROOT}
+
+ifdef debug
+CFLAGS := $(CFLAGS) -g
+endif
+
 LDFLAGS :=\
   -lwasi-emulated-getpid \
   -lwasi-emulated-signal \

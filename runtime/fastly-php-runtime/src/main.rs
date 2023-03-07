@@ -27,11 +27,17 @@ fn main(req: Request) -> Result<FastlyResponse, Error> {
     Ok(res)
 }
 
+// pub fn main() {
+//     OP_ARRAY.with(|op_array| {
+//         execute_compiled(*op_array.borrow());
+//     });
+// }
+
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
     crate::php::init();
 
-    let op_array = compile_from_stdin();
+    let op_array = compile_from_stdin(php::MainFileType::Phar);
 
     OP_ARRAY.with(|op_array_cell| {
         *op_array_cell.borrow_mut() = op_array;
