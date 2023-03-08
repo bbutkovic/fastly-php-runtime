@@ -1,7 +1,4 @@
-use ext_php_rs::{
-    convert::{FromZval, IntoZval},
-    prelude::*,
-};
+use ext_php_rs::prelude::*;
 use serde_variant::to_variant_name;
 
 // todo: using a "mod" fails because ext-php-rs proc macros use global state?
@@ -10,15 +7,15 @@ use serde_variant::to_variant_name;
 
 use std::{net::IpAddr, str::FromStr};
 
-use fastly::geo::{ConnSpeed, Geo};
+use fastly::geo::Geo;
 
-// #[php_function]
-// pub fn fastlyce_geo_lookup(ip: String) -> FastlyGeo {
-//     let ip = IpAddr::from_str(ip.as_str()).unwrap();
-//     let geo = fastly::geo::geo_lookup(ip).unwrap();
+#[php_function]
+pub fn fastlyce_geo_lookup(ip: String) -> FastlyGeo {
+    let ip = IpAddr::from_str(ip.as_str()).unwrap();
+    let geo = fastly::geo::geo_lookup(ip).unwrap();
 
-//     FastlyGeo { geo }
-// }
+    FastlyGeo { geo }
+}
 
 #[php_class(name = "FastlyCE\\Geo")]
 pub struct FastlyGeo {

@@ -1,14 +1,7 @@
-use std::{
-    borrow::BorrowMut,
-    cell::{Cell, RefCell},
-    ptr::null_mut,
-};
+use std::{cell::RefCell, ptr::null_mut};
 
-use fastly::{Error, Request, Response as FastlyResponse};
-use php::compile_from_stdin;
-
-use crate::php::execute_compiled;
-use bytes::Bytes;
+use fastly::handle::{client_request_and_body, BodyHandle, ResponseHandle};
+use php::{compile_from_stdin, execute_compiled_with_ce};
 
 mod php;
 mod util;
@@ -17,21 +10,22 @@ thread_local! {
     static OP_ARRAY: RefCell<*mut php_sys::zend_op_array> = RefCell::new(null_mut());
 }
 
-#[fastly::main]
-fn main(req: Request) -> Result<FastlyResponse, Error> {
+pub fn main() {
+    fastly::init();
+    let (client_req_handle, client_body_handle) = client_request_and_body();
+    let res_handle = ResponseHandle::new();
+    let res_body_handle = BodyHandle::new();
+
     OP_ARRAY.with(|op_array| {
-        execute_compiled(*op_array.borrow());
+        execute_compiled_with_ce(
+            *op_array.borrow(),
+            client_req_handle,
+            client_body_handle,
+            res_handle,
+            res_body_handle,
+        );
     });
-
-    let res = FastlyResponse::from_status(200);
-    Ok(res)
 }
-
-// pub fn main() {
-//     OP_ARRAY.with(|op_array| {
-//         execute_compiled(*op_array.borrow());
-//     });
-// }
 
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {

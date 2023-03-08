@@ -7,57 +7,62 @@ use std::{
 
 use bytes::Bytes;
 use ext_php_rs;
+use fastly::handle::{BodyHandle, RequestHandle, ResponseHandle, StreamingBodyHandle};
 use fastly_ce_module;
 use lazy_static::lazy_static;
 use php_sys::*;
 
-use crate::util::*;
+use crate::util::cstr;
 
 lazy_static! {
+    // todo: stdin is unnecessary, consume directly
     static ref STDIN: Mutex<Bytes> = Mutex::new(Bytes::new());
+    static ref RES_STREAMING_BODY_HANDLE: Mutex<Option<StreamingBodyHandle>> = Mutex::new(None);
+}
+
+pub fn execute_compiled_with_ce(
+    op_array: *mut zend_op_array,
+    req_handle: RequestHandle,
+    req_body_handle: BodyHandle,
+    res_handle: ResponseHandle,
+    res_body_handle: BodyHandle,
+) {
+    let res_streaming_body_handle = res_handle.stream_to_client(res_body_handle);
+
+    (*RES_STREAMING_BODY_HANDLE.lock().unwrap()) = Some(res_streaming_body_handle);
+
+    execute_compiled(op_array);
 }
 
 pub fn execute_compiled(op_array: *mut zend_op_array) {
-    println!("running");
+    println!("Started executing PHP");
     unsafe { zend_execute(op_array, null_mut()) };
+    log_exceptions();
 
-    print_exception();
-
-    println!("php code ran");
+    println!("PHP code executed");
 }
 
-fn print_exception() {
+fn log_exceptions() {
     let mut globals = unsafe { executor_globals };
 
     let mut exception_ptr = std::ptr::null_mut();
     std::mem::swap(&mut exception_ptr, &mut globals.exception);
 
-    let mut exception = unsafe { NonNull::new_unchecked(exception_ptr.as_mut().unwrap()) };
-    println!("exception: {:?}", exception);
-
-    unsafe { zend_exception_error(exception.as_mut(), 1) };
+    unsafe {
+        if let Some(exception_ptr) = exception_ptr.as_mut() {
+            let mut exception = NonNull::new_unchecked(exception_ptr);
+            zend_exception_error(exception.as_mut(), 1);
+        }
+    }
 }
 
 pub fn init() {
     unsafe {
         php_embed_module.startup = Some(php_embed_startup);
         php_embed_module.ub_write = Some(embed_write);
-        // php_embed_module.sapi_error
         php_embed_init(0, null_mut());
     }
 }
-
-// todo: errors
-// ZEND_API ZEND_COLD void zend_error(int type, const char *format, ...) {
-// 	zend_string *filename;
-// 	uint32_t lineno;
-// 	va_list args;
-
-// 	get_filename_lineno(type, &filename, &lineno);
-// 	va_start(args, format);
-// 	zend_error_va_list(type, filename, lineno, format, args);
-// 	va_end(args);
-// }
 
 // workaround for loading the fastly-ce module, todo: implement our own sapi
 unsafe extern "C" fn php_embed_startup(
@@ -69,14 +74,6 @@ unsafe extern "C" fn php_embed_startup(
 
     0 as ::std::os::raw::c_int
 }
-// unsafe extern "C" fn php_embed_startup() {}
-// static int php_embed_startup(sapi_module_struct *sapi_module)
-// {
-// 	if (php_module_startup(sapi_module, NULL, 0) == FAILURE) {
-// 		return FAILURE;
-// 	}
-// 	return SUCCESS;
-// }
 
 fn convert(bv: *mut ext_php_rs::ffi::_zend_module_entry) -> *mut _zend_module_entry {
     unsafe { &mut *(bv as *mut ext_php_rs::ffi::_zend_module_entry as *mut _zend_module_entry) }
@@ -119,61 +116,26 @@ pub fn compile_from_stdin() -> *mut zend_op_array {
     op_array
 }
 
-// unsafe fn run_php_from_file() {
-//     php_embed_module.ub_write = Some(embed_write);
-//     php_embed_init(0, std::ptr::null_mut());
-
-//     // php_embed_module.ub_write = Some(embed_write);
-
-//     let init_string = zend_string_init_interned.unwrap();
-
-//     let filename = cstr!("test.phar");
-
-//     let filename_len = filename.to_str().unwrap().len();
-
-//     let primary_file: zend_file_handle = zend_file_handle {
-//         handle: _zend_file_handle__bindgen_ty_1 {
-//             stream: zend_stream {
-//                 reader: Some(embed_phar_reader),
-//                 fsizer: Some(embed_phar_fsizer),
-//                 closer: Some(embed_phar_closer),
-//                 isatty: 0,
-//                 handle: std::ptr::null_mut(),
-//             },
-//         },
-//         filename: init_string(filename.as_ptr(), filename_len as u32, true),
-//         opened_path: std::ptr::null_mut(),
-//         type_: zend_stream_type_ZEND_HANDLE_STREAM as u8,
-//         primary_script: true,
-//         in_list: false,
-//         buf: std::ptr::null_mut(),
-//         len: 0,
-//     };
-
-//     let primary = Box::new(primary_file);
-
-//     println!("executing primary file:");
-//     let ret = zend_execute_scripts(8, std::ptr::null_mut(), 1, primary);
-//     println!("finished: {}", ret);
-// }
-
 #[no_mangle]
 unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: usize) -> usize {
     let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
 
-    println!("ub_write: {}", str);
+    let mut res_body_handle_global = RES_STREAMING_BODY_HANDLE.lock().unwrap();
+
+    if let Some(mut res_body_handle) = res_body_handle_global.take() {
+        res_body_handle.write_str(str);
+        *res_body_handle_global = Some(res_body_handle);
+    }
 
     str_length
 }
 
 #[no_mangle]
 unsafe extern "C" fn stdin_reader(
-    handle: *mut ::std::os::raw::c_void,
+    _handle: *mut ::std::os::raw::c_void,
     buf: *mut ::std::os::raw::c_char,
     len: usize,
 ) -> isize {
-    println!("reader: {:?} {:?} {:?}", handle, buf, len);
-
     if len == 0 {
         return 0;
     }
@@ -189,8 +151,6 @@ unsafe extern "C" fn stdin_reader(
 #[no_mangle]
 unsafe extern "C" fn stdin_fsizer(_handle: *mut ::std::os::raw::c_void) -> usize {
     let size = STDIN.lock().unwrap().len();
-
-    println!("fsizer: {}", size);
 
     size
 }
