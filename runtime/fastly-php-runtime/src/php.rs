@@ -2,35 +2,30 @@ use core::slice;
 use std::{
     io::{self, Read},
     ptr::{null_mut, NonNull},
+    str::FromStr,
     sync::Mutex,
 };
 
 use bytes::Bytes;
 use ext_php_rs;
-use fastly::handle::{BodyHandle, RequestHandle, ResponseHandle, StreamingBodyHandle};
+
 use fastly_ce_module;
 use lazy_static::lazy_static;
 use php_sys::*;
 
-use crate::util::cstr;
+use crate::{
+    fastly_ce::{request::FastlyRequestHandle, response::FastlyResponseHandle},
+    util::cstr,
+};
 
 lazy_static! {
     // todo: stdin is unnecessary, consume directly
     static ref STDIN: Mutex<Bytes> = Mutex::new(Bytes::new());
-    static ref RES_STREAMING_BODY_HANDLE: Mutex<Option<StreamingBodyHandle>> = Mutex::new(None);
+    static ref REQ_HANDLE: Mutex<FastlyRequestHandle> = Mutex::new(FastlyRequestHandle::new());
+    static ref RES_HANDLE: Mutex<FastlyResponseHandle> = Mutex::new(FastlyResponseHandle::new());
 }
 
-pub fn execute_compiled_with_ce(
-    op_array: *mut zend_op_array,
-    req_handle: RequestHandle,
-    req_body_handle: BodyHandle,
-    res_handle: ResponseHandle,
-    res_body_handle: BodyHandle,
-) {
-    let res_streaming_body_handle = res_handle.stream_to_client(res_body_handle);
-
-    (*RES_STREAMING_BODY_HANDLE.lock().unwrap()) = Some(res_streaming_body_handle);
-
+pub fn execute_compiled_with_ce(op_array: *mut zend_op_array) {
     execute_compiled(op_array);
 }
 
@@ -60,8 +55,31 @@ pub fn init() {
     unsafe {
         php_embed_module.startup = Some(php_embed_startup);
         php_embed_module.ub_write = Some(embed_write);
+        php_embed_module.send_header = Some(embed_send_header);
         php_embed_init(0, null_mut());
     }
+}
+
+unsafe extern "C" fn embed_send_header(
+    sapi_header: *mut sapi_header_struct,
+    _server_context: *mut ::std::os::raw::c_void,
+) {
+    let mut res_body_handle_global = RES_HANDLE.lock().unwrap();
+
+    let header = std::ffi::CStr::from_ptr((*sapi_header).header)
+        .to_str()
+        .unwrap();
+
+    let (name, value) = header
+        .split_once(":")
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .unwrap();
+
+    println!("HEADER OUT: {}: {}", name, value);
+
+    res_body_handle_global.send_header(name, value).unwrap();
+
+    todo!()
 }
 
 // workaround for loading the fastly-ce module, todo: implement our own sapi
@@ -80,14 +98,12 @@ fn convert(bv: *mut ext_php_rs::ffi::_zend_module_entry) -> *mut _zend_module_en
 }
 
 pub fn compile_from_stdin() -> *mut zend_op_array {
-    println!("loading and compiling");
-
     (*STDIN.lock().unwrap()) = io::stdin().bytes().map(|b| b.unwrap()).collect();
 
     let compile_file = unsafe { zend_compile_file.unwrap() };
     let init_string = unsafe { zend_string_init_interned.unwrap() };
 
-    let filename = cstr!("test.php");
+    let filename = cstr!("index.php");
     let filename_len = filename.to_str().unwrap().len();
 
     let primary_file: zend_file_handle = zend_file_handle {
@@ -120,12 +136,11 @@ pub fn compile_from_stdin() -> *mut zend_op_array {
 unsafe extern "C" fn embed_write(str: *const ::std::os::raw::c_char, str_length: usize) -> usize {
     let str = std::ffi::CStr::from_ptr(str).to_str().unwrap();
 
-    let mut res_body_handle_global = RES_STREAMING_BODY_HANDLE.lock().unwrap();
+    let mut res_body_handle_global = RES_HANDLE.lock().unwrap();
 
-    if let Some(mut res_body_handle) = res_body_handle_global.take() {
-        res_body_handle.write_str(str);
-        *res_body_handle_global = Some(res_body_handle);
-    }
+    res_body_handle_global
+        .stream_response(str.to_string())
+        .unwrap();
 
     str_length
 }
