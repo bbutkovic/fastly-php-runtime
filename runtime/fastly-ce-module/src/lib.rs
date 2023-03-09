@@ -182,6 +182,13 @@ impl FastlyRequest {
         Self(Some(request))
     }
 
+    pub fn with_body(&mut self, body: String) -> Self {
+        let request = self.0.take().unwrap();
+
+        let request = request.with_body(body);
+        Self(Some(request))
+    }
+
     pub fn send(&mut self, backend: String) -> PhpResult<FastlyResponse> {
         let request = self.0.take().unwrap();
 
