@@ -157,23 +157,23 @@ impl FastlyRequest {
     }
 
     pub fn head(url: String) -> Self {
-        Self::__construct("head".to_string(), url)
+        Self::__construct("HEAD".to_string(), url)
     }
 
     pub fn post(url: String) -> Self {
-        Self::__construct("post".to_string(), url)
+        Self::__construct("POST".to_string(), url)
     }
 
     pub fn put(url: String) -> Self {
-        Self::__construct("put".to_string(), url)
+        Self::__construct("PUT".to_string(), url)
     }
 
     pub fn delete(url: String) -> Self {
-        Self::__construct("delete".to_string(), url)
+        Self::__construct("DELETE".to_string(), url)
     }
 
     pub fn connect(url: String) -> Self {
-        Self::__construct("connect".to_string(), url)
+        Self::__construct("CONNECT".to_string(), url)
     }
 
     pub fn with_header(&mut self, name: String, value: String) -> Self {
