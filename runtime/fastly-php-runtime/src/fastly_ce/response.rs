@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{io::Write, str::FromStr};
 
 use fastly::{
     handle::{
@@ -75,13 +75,33 @@ impl ResponseHandle {
                 Ok(self)
             }
             ResponseState::StreamingBodyResponse(streaming_body) => {
-                streaming_body.take().unwrap().write_str(content.as_str());
+                let mut streaming_body = streaming_body.take().unwrap();
+
+                streaming_body.write_str(content.as_str());
+
+                self.state = ResponseState::StreamingBodyResponse(Some(streaming_body));
 
                 Ok(self)
             }
             ResponseState::Finished => {
                 panic!("response finished already");
             }
+        }
+    }
+
+    // todo: clean this up
+    pub fn flush<'a>(&'a mut self) {
+        match &mut self.state {
+            ResponseState::Uninitialized => {
+                panic!("response not initialized")
+            }
+            ResponseState::Response(_) => todo!(),
+            ResponseState::StreamingBodyResponse(streaming_body) => {
+                let mut streaming_body = streaming_body.take().unwrap();
+
+                streaming_body.flush().unwrap();
+            }
+            ResponseState::Finished => todo!(),
         }
     }
 }

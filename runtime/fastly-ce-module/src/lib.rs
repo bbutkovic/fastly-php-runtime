@@ -1,4 +1,5 @@
-use ext_php_rs::prelude::*;
+use anyhow::Result;
+use ext_php_rs::{boxed::ZBox, convert::IntoZval, prelude::*, types::ZendClassObject};
 use serde_variant::to_variant_name;
 
 // todo: using a "mod" fails because ext-php-rs proc macros use global state?
@@ -7,8 +8,9 @@ use serde_variant::to_variant_name;
 
 use std::{net::IpAddr, str::FromStr};
 
-use fastly::geo::Geo;
+use fastly::{geo::Geo, http::request, Request, Response};
 
+// Fastly Geolocation
 #[php_function]
 pub fn fastlyce_geo_lookup(ip: String) -> FastlyGeo {
     let ip = IpAddr::from_str(ip.as_str()).unwrap();
@@ -116,6 +118,82 @@ impl FastlyGeo {
         self.geo
             .utc_offset()
             .map(|offset| to_variant_name(&offset).unwrap().to_string())
+    }
+}
+
+// -- Fastly Geolocation
+
+// Backend request
+
+#[php_class(name = "FastlyCE\\Response")]
+pub struct FastlyResponse {
+    response: Option<Response>,
+}
+
+#[php_impl]
+impl FastlyResponse {
+    pub fn into_body_str(&mut self) -> String {
+        let response = self.response.take().unwrap();
+
+        response.into_body_str()
+    }
+}
+
+#[php_class(name = "FastlyCE\\Request")]
+pub struct FastlyRequest {
+    request: Option<Request>,
+}
+
+#[php_impl]
+impl FastlyRequest {
+    pub fn __construct(method: String, url: String) -> Self {
+        Self {
+            request: Some(Request::new(method, url)),
+        }
+    }
+
+    pub fn get(url: String) -> Self {
+        Self::__construct("GET".to_string(), url)
+    }
+
+    pub fn head(url: String) -> Self {
+        Self::__construct("head".to_string(), url)
+    }
+
+    pub fn post(url: String) -> Self {
+        Self::__construct("post".to_string(), url)
+    }
+
+    pub fn put(url: String) -> Self {
+        Self::__construct("put".to_string(), url)
+    }
+
+    pub fn delete(url: String) -> Self {
+        Self::__construct("delete".to_string(), url)
+    }
+
+    pub fn connect(url: String) -> Self {
+        Self::__construct("connect".to_string(), url)
+    }
+
+    pub fn with_header(&mut self, name: String, value: String) -> Self {
+        let request = self.request.take().unwrap();
+
+        let request = request.with_header(name, value);
+        Self {
+            request: Some(request),
+        }
+    }
+
+    pub fn send(&mut self, backend: String) -> PhpResult<FastlyResponse> {
+        let request = self.request.take().unwrap();
+
+        request
+            .send(backend)
+            .map(|response| FastlyResponse {
+                response: Some(response),
+            })
+            .map_err(|err| PhpException::default(err.to_string()))
     }
 }
 

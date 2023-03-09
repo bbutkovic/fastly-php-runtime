@@ -8,3 +8,4 @@ publish = false
 ext-php-rs = { version = "*" }
 fastly = "^0.8.6"
 serde_variant = "0.1.2"
+anyhow = "*"

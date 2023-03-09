@@ -18,7 +18,6 @@ pub fn main() {
     });
 }
 
-/// Initialize the program with op_array
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
     println!("Initializing PHP");

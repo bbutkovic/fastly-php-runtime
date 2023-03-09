@@ -12,3 +12,4 @@ bundle.*
 .vscode/settings.json
 pack.php
 debugger*
+fastly.toml

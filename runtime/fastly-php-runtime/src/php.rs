@@ -1,6 +1,8 @@
 mod compilation;
 mod sapi;
 
+use crate::fastly_ce::manager::response;
+
 use self::sapi::init_fastly_ce_sapi;
 pub use compilation::compile_from_stdin;
 use php_sys::*;
@@ -12,6 +14,11 @@ pub fn execute_compiled(op_array: *mut zend_op_array) {
         zend_execute(op_array, null_mut());
     };
     log_exceptions();
+
+    // todo: tmp for testing
+    let mut response = response();
+
+    response.flush();
 
     println!("PHP code executed");
 }
@@ -31,7 +38,6 @@ fn log_exceptions() {
 }
 
 pub fn init() {
-    // unsafe { php_embed_init(0, std::ptr::null_mut()) };
     init_fastly_ce_sapi();
     unsafe {
         php_request_startup();

@@ -430,6 +430,7 @@ dependencies = [
 name = "fastly-ce-module"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "ext-php-rs",
  "fastly",
  "serde_variant",
