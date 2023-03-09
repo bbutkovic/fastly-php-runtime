@@ -6,6 +6,8 @@ members = [
     "php-sys",
 ]
 
+[profile.release]
+strip = true
 
 [patch.crates-io]
 # patch for wasm compilation
