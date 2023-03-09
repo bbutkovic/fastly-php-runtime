@@ -121,16 +121,20 @@ impl FastlyGeo {
 // Fastly Response
 
 #[php_class(name = "FastlyCE\\Response")]
-pub struct FastlyResponse {
-    response: Option<Response>,
-}
+pub struct FastlyResponse(Option<Response>);
 
 #[php_impl]
 impl FastlyResponse {
     pub fn into_body_str(&mut self) -> String {
-        let response = self.response.take().unwrap();
+        let response = self.0.take().unwrap();
 
         response.into_body_str()
+    }
+}
+
+impl From<Response> for FastlyResponse {
+    fn from(value: Response) -> Self {
+        Self(Some(value))
     }
 }
 
@@ -139,16 +143,12 @@ impl FastlyResponse {
 // Fastly Request
 
 #[php_class(name = "FastlyCE\\Request")]
-pub struct FastlyRequest {
-    request: Option<Request>,
-}
+pub struct FastlyRequest(Option<Request>);
 
 #[php_impl]
 impl FastlyRequest {
     pub fn __construct(method: String, url: String) -> Self {
-        Self {
-            request: Some(Request::new(method, url)),
-        }
+        Self(Some(Request::new(method, url)))
     }
 
     pub fn get(url: String) -> Self {
@@ -176,22 +176,18 @@ impl FastlyRequest {
     }
 
     pub fn with_header(&mut self, name: String, value: String) -> Self {
-        let request = self.request.take().unwrap();
+        let request = self.0.take().unwrap();
 
         let request = request.with_header(name, value);
-        Self {
-            request: Some(request),
-        }
+        Self(Some(request))
     }
 
     pub fn send(&mut self, backend: String) -> PhpResult<FastlyResponse> {
-        let request = self.request.take().unwrap();
+        let request = self.0.take().unwrap();
 
         request
             .send(backend)
-            .map(|response| FastlyResponse {
-                response: Some(response),
-            })
+            .map(FastlyResponse::from)
             .map_err(|err| PhpException::default(err.to_string()))
     }
 }
