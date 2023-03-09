@@ -1,32 +1,30 @@
-use fastly::handle::RequestHandle;
+use fastly::handle::RequestHandle as FastlyRequestHandle;
 
-pub struct FastlyRequestHandle {
-    state: FastlyRequestState,
+pub struct RequestHandle {
+    state: RequestState,
 }
 
-enum FastlyRequestState {
+enum RequestState {
     Uninitialized,
-    Request(Option<RequestHandle>),
+    Request(Option<FastlyRequestHandle>),
 }
 
-impl FastlyRequestHandle {
+impl RequestHandle {
     pub fn new() -> Self {
         Self {
-            state: FastlyRequestState::Uninitialized,
+            state: RequestState::Uninitialized,
         }
     }
 
     fn initialize_request<'a>(&'a mut self) -> &'a mut Self {
-        self.state = FastlyRequestState::Request(Some(RequestHandle::from_client()));
+        self.state = RequestState::Request(Some(FastlyRequestHandle::from_client()));
         self
     }
 
     fn initialized_request<'a>(&'a mut self) -> &'a mut Self {
         match &self.state {
-            FastlyRequestState::Uninitialized => self.initialize_request(),
+            RequestState::Uninitialized => self.initialize_request(),
             _ => self,
         }
     }
-
-    // pub fn
 }

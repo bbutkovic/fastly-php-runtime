@@ -450,6 +450,7 @@ dependencies = [
 name = "fastly-php-runtime"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytes 1.4.0",
  "ext-php-rs",
  "fastly",

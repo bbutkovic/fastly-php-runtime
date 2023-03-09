@@ -1,6 +1,6 @@
 use std::{cell::RefCell, ptr::null_mut};
 
-use php::{compile_from_stdin, execute_compiled_with_ce};
+use php::{compile_from_stdin, execute_compiled, init as init_php};
 
 mod fastly_ce;
 mod php;
@@ -14,7 +14,7 @@ pub fn main() {
     fastly::init();
 
     OP_ARRAY.with(|op_array| {
-        execute_compiled_with_ce(*op_array.borrow());
+        execute_compiled(*op_array.borrow());
     });
 }
 
@@ -23,7 +23,7 @@ pub fn main() {
 pub extern "C" fn init() {
     println!("Initializing PHP");
 
-    crate::php::init();
+    init_php();
 
     println!("Loading and compiling PHP from STDIN");
 
