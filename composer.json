@@ -2,7 +2,7 @@
     "name": "fastly/php-runtime",
     "description": "PHP runtime for Fastly Compute@Edge",
     "type": "library",
-    "license": "library",
+    "license": "Apache-2.0",
     "autoload": {
         "psr-4": {
             "Fastly\\PhpRuntime\\": "src/"
