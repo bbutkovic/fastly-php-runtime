@@ -1,10 +1,10 @@
 /vendor/
-/runtime/dependencies/sources/*
-!/runtime/dependencies/sources/.gitkeep
-/runtime/dependencies/lib/*
-!/runtime/dependencies/lib/.gitkeep
-/runtime/target/*
-/runtime/deps/
+/dependencies/sources/*
+!/dependencies/sources/.gitkeep
+/dependencies/lib/*
+!/dependencies/lib/.gitkeep
+/target/*
+/deps/
 /tmp
 /runtime.*
 /bundle.*
@@ -14,3 +14,10 @@
 /debugger*
 /fastly.toml
 /pkg
+/target
+**/*.rs.bk
+/bin
+/pkg
+*.wat
+*.phar
+debugger*
