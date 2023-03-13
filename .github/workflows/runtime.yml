@@ -16,7 +16,7 @@ jobs:
 
     - name: Install dependencies
       run: >
-        sudo apt-get install -y re2c &&
+        sudo apt-get install -y re2c llvm-15 &&
         curl -sSLO https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-19/wasi-sdk-19.0-linux.tar.gz &&
         tar xzf wasi-sdk-19.0-linux.tar.gz &&
         mv wasi-sdk-19.0 /opt/wasi-sdk &&
