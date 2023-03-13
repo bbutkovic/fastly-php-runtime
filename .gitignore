@@ -6,10 +6,11 @@
 /runtime/target/*
 /runtime/deps/
 /tmp
-runtime.*
-bundle.*
+/runtime.*
+/bundle.*
 *.log
 .vscode/settings.json
-pack.php
-debugger*
-fastly.toml
+/pack.php
+/debugger*
+/fastly.toml
+/pkg
