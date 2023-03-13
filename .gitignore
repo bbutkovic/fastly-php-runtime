@@ -1,4 +1,3 @@
-/vendor/
 /dependencies/sources/*
 !/dependencies/sources/.gitkeep
 /dependencies/lib/*

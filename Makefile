@@ -23,7 +23,7 @@ PHP_WASI_SDK ?=/opt/wasi-sdk
 PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK}/share/wasi-sysroot
 PHP_WASI_LIBCLANG_RT_PATH :=${PHP_WASI_SDK}/lib/clang/15.0.7/lib/wasi
 PHP_WASI_EMULATORS_PATH :=${PHP_WASI_SDK}/share/wasi-sysroot/lib/wasm32-wasi
-PHP_SRC_ROOT :=$(PWD)/runtime/deps/php
+PHP_SRC_ROOT :=$(PWD)/deps/php
 PHP_INCLUDES :=${PHP_SRC_ROOT},$\
   ${PHP_SRC_ROOT}/main,$\
   ${PHP_SRC_ROOT}/TSRM,$\
@@ -86,23 +86,23 @@ runtime.wasm: export PHP_CONFIGURE_FROM_ENV :=true
 runtime.wasm: export PHP_PHP_API :=20210902
 runtime.wasm: export PHP_DEBUG_BUILD :=no
 runtime.wasm: export PHP_THREAD_SAFETY :=disabled
-runtime.wasm: runtime/deps/php/libs/libphp.a
-	cd runtime && cargo build $(release) && cp target/wasm32-wasi/$(target)/fastly-php-runtime.wasm ../runtime.wasm
+runtime.wasm: deps/php/libs/libphp.a
+	cargo build $(release) && cp target/wasm32-wasi/$(target)/fastly-php-runtime.wasm runtime.wasm
 
 runtime.wat: runtime.wasm
 	wasm2wat runtime.wasm > runtime.wat
 
-runtime/deps/php:
-	cd runtime && mkdir -p deps && cp -r vendor/php deps/php
+deps/php:
+	mkdir -p deps && cp -r vendor/php deps/php
 
-runtime/deps/php/Makefile: export CFLAGS :=${CFLAGS}
-runtime/deps/php/Makefile: export LDFLAGS :=${LDFLAGS}
-runtime/deps/php/Makefile: export CC := ${CC}
-runtime/deps/php/Makefile: export RANLIB := ${RANLIB}
-runtime/deps/php/Makefile: export AR := ${AR}
-runtime/deps/php/Makefile: export NM := ${NM}
-runtime/deps/php/Makefile: | runtime/deps/php
-	cd runtime/deps/php && \
+deps/php/Makefile: export CFLAGS :=${CFLAGS}
+deps/php/Makefile: export LDFLAGS :=${LDFLAGS}
+deps/php/Makefile: export CC := ${CC}
+deps/php/Makefile: export RANLIB := ${RANLIB}
+deps/php/Makefile: export AR := ${AR}
+deps/php/Makefile: export NM := ${NM}
+deps/php/Makefile: | deps/php
+	cd deps/php && \
     ./buildconf --force && \
     ./configure \
     --enable-embed=static \
@@ -127,18 +127,18 @@ runtime/deps/php/Makefile: | runtime/deps/php
     --enable-pdo=static \
     --with-pic
 
-runtime/deps/php/libs/libphp.a: export CFLAGS :=${CFLAGS}
-runtime/deps/php/libs/libphp.a: export LDFLAGS :=${LDFLAGS}
-runtime/deps/php/libs/libphp.a: export CC := ${CC}
-runtime/deps/php/libs/libphp.a: export RANLIB := ${RANLIB}
-runtime/deps/php/libs/libphp.a: export AR := ${AR}
-runtime/deps/php/libs/libphp.a: export NM := ${NM}
-runtime/deps/php/libs/libphp.a: runtime/deps/php/Makefile
-	cd runtime/deps/php && make ${numjobs_flag} libphp.la
+deps/php/libs/libphp.a: export CFLAGS :=${CFLAGS}
+deps/php/libs/libphp.a: export LDFLAGS :=${LDFLAGS}
+deps/php/libs/libphp.a: export CC := ${CC}
+deps/php/libs/libphp.a: export RANLIB := ${RANLIB}
+deps/php/libs/libphp.a: export AR := ${AR}
+deps/php/libs/libphp.a: export NM := ${NM}
+deps/php/libs/libphp.a: deps/php/Makefile
+	cd deps/php && make ${numjobs_flag} libphp.la
 
 .PHONY: clean cargo-clean
 clean:
-	@rm -rf runtime.wasm runtime/deps/
+	@rm -rf runtime.wasm deps/
 
 cargo-clean: clean
-	cd runtime && cargo clean
+	cargo clean
