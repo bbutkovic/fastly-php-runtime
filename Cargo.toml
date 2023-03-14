@@ -1,9 +1,7 @@
 [workspace]
 
 members = [
-    "fastly-php-runtime",
-    "fastly-ce-module",
-    "php-sys",
+    "crates/*",
 ]
 
 [profile.release]

@@ -8,7 +8,7 @@
 /runtime.*
 /bundle.*
 *.log
-.vscode/settings.json
+/.vscode
 /pack.php
 /debugger*
 /fastly.toml
