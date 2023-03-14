@@ -9,4 +9,3 @@ links = "php"
 [build-dependencies]
 bindgen = "0.63"
 regex = "1"
-php-setup = { path = "../php-setup" }
