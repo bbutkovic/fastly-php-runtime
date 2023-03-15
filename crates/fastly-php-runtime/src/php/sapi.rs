@@ -6,7 +6,7 @@ use crate::{fastly_ce::manager::response, util::cstr};
 
 pub fn init_fastly_ce_sapi() {
     let name = cstr!("fastly-ce");
-    let pretty_name = cstr!("Fastly CE");
+    let pretty_name = cstr!("Fastly Compute@Edge");
 
     // todo: allow some form of configuration through a php.ini file?
     let ini_entries = "html_errors=0\n
