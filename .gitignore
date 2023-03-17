@@ -20,3 +20,6 @@
 *.wat
 *.phar
 debugger*
+/integration-tests/fixtures/*/bundle.wasm
+/integration-tests/target
+/integration-test-runner

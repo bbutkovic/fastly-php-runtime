@@ -19,6 +19,8 @@ endif
 
 $(info in $(target) mode)
 
+HOST_TARGET_TRIPLE = $(shell rustc -vV | sed -n 's|host: ||p')
+
 PHP_WASI_SDK ?=/opt/wasi-sdk
 PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK}/share/wasi-sysroot
 PHP_WASI_LIBCLANG_RT_PATH :=${PHP_WASI_SDK}/lib/clang/15.0.7/lib/wasi
@@ -136,9 +138,25 @@ deps/php/libs/libphp.a: export NM := ${NM}
 deps/php/libs/libphp.a: deps/php/Makefile
 	cd deps/php && make ${numjobs_flag} libphp.la
 
-.PHONY: clean cargo-clean
-clean:
-	@rm -rf runtime.wasm deps/
+.PHONY: test
+test: runtime.wasm integration-test
 
-cargo-clean: clean
+.PHONY: integration-test
+integration-test: integration-test-runner
+	./integration-test-runner $(PWD)/integration-tests/fixtures $(PWD)/runtime.wasm
+
+integration-test-runner:
+	cargo build --target=$(HOST_TARGET_TRIPLE) --release --manifest-path=integration-tests/Cargo.toml && \
+  cp integration-tests/target/$(HOST_TARGET_TRIPLE)/release/integration-tests integration-test-runner
+
+.PHONY: clean
+clean: cargo-clean tests-clean
+	@rm -rf runtime.wasm runtime.wat deps/
+
+.PHONY: tests-clean
+tests-clean:
+	@rm -rf integration-test-runner integration-tests/target
+
+.PHONY: cargo-clean
+cargo-clean:
 	cargo clean
