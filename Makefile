@@ -1,6 +1,7 @@
 .SUFFIXES:
 
 debug ?=
+use_sccache ?=
 
 ifdef debug
   release :=
@@ -54,6 +55,15 @@ CFLAGS :=\
   -static \
   --sysroot=${PHP_WASI_SDK_SYSROOT}
 
+ifdef use_sccache
+  RUSTC_WRAPPER :=sccache
+  SCCACHE_CLANG :=${CC}
+  CC := $(abspath ./util/sccache-clang)
+else
+  SCCACHE_CLANG :=
+  RUSTC_WRAPPER :=
+endif
+
 ifdef debug
 CFLAGS := $(CFLAGS) -g
 endif
@@ -88,6 +98,7 @@ runtime.wasm: export PHP_CONFIGURE_FROM_ENV :=true
 runtime.wasm: export PHP_PHP_API :=20210902
 runtime.wasm: export PHP_DEBUG_BUILD :=no
 runtime.wasm: export PHP_THREAD_SAFETY :=disabled
+runtime.wasm: export RUSTC_WRAPPER :=${RUSTC_WRAPPER}
 runtime.wasm: deps/php/libs/libphp.a
 	cargo build $(release) && cp target/wasm32-wasi/$(target)/fastly-php-runtime.wasm runtime.wasm
 
@@ -103,6 +114,7 @@ deps/php/Makefile: export CC := ${CC}
 deps/php/Makefile: export RANLIB := ${RANLIB}
 deps/php/Makefile: export AR := ${AR}
 deps/php/Makefile: export NM := ${NM}
+deps/php/Makefile: export SCCACHE_CLANG := ${SCCACHE_CLANG}
 deps/php/Makefile: | deps/php
 	cd deps/php && \
     ./buildconf --force && \
