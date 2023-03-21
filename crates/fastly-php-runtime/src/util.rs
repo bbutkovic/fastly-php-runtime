@@ -21,6 +21,7 @@ macro_rules! cstr {
     }};
 }
 
+#[allow(unused_macros)]
 macro_rules! cstring {
     ( $s:literal ) => {{
         crate::util::validate_cstr_contents($s.as_bytes());
@@ -29,4 +30,5 @@ macro_rules! cstring {
 }
 
 pub(crate) use cstr;
+#[allow(unused_imports)]
 pub(crate) use cstring;
