@@ -1,5 +1,6 @@
 mod compilation;
 mod sapi;
+mod stubs;
 
 use crate::fastly_ce::manager::response;
 
@@ -43,3 +44,5 @@ pub fn init() {
         php_request_startup();
     }
 }
+
+pub use self::stubs::generate_fastly_ce_stubs;

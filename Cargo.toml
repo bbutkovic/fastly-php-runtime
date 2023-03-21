@@ -4,6 +4,10 @@ members = [
     "crates/*",
 ]
 
+exclude = [
+    "stub-generator",
+]
+
 [profile.release]
 strip = true
 

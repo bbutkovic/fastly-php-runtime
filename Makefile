@@ -19,6 +19,8 @@ endif
 
 $(info in $(target) mode)
 
+HOST_TARGET_TRIPLE = $(shell rustc -vV | sed -n 's|host: ||p')
+
 PHP_WASI_SDK ?=/opt/wasi-sdk
 PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK}/share/wasi-sysroot
 PHP_WASI_LIBCLANG_RT_PATH :=${PHP_WASI_SDK}/lib/clang/15.0.7/lib/wasi
@@ -139,6 +141,19 @@ deps/php/libs/libphp.a: deps/php/Makefile
 .PHONY: clean cargo-clean
 clean:
 	@rm -rf runtime.wasm deps/
+
+fastly-php-runtime.stubs.php: runtime.wasm stub-gen
+	./stub-gen runtime.wasm > fastly-php-runtime.stubs.php
+
+stub-gen:
+	cargo build --target=$(HOST_TARGET_TRIPLE) --release --manifest-path=stub-generator/Cargo.toml && \
+  cp stub-generator/target/$(HOST_TARGET_TRIPLE)/release/stub-generator stub-gen
+
+.PHONY: all
+all: runtime.wasm fastly-php-runtime.stubs.php
+
+.PHONY: test
+test: runtime.wasm integration-test
 
 cargo-clean: clean
 	cargo clean
