@@ -1,6 +1,6 @@
 use std::{cell::RefCell, ptr::null_mut};
 
-use php::{compile_from_stdin, execute_compiled, init as init_php};
+use php::{compile_from_stdin, execute_compiled, generate_fastly_ce_stubs, init as init_php};
 
 mod fastly_ce;
 mod php;
@@ -33,4 +33,11 @@ pub extern "C" fn init() {
     });
 
     println!("Code loaded and compiled");
+}
+
+#[export_name = "generate_fastly_ce_stubs"]
+pub extern "C" fn generate_stubs() {
+    let stubs = generate_fastly_ce_stubs();
+
+    print!("{stubs}")
 }

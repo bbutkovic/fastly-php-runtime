@@ -20,3 +20,6 @@
 *.wat
 *.phar
 debugger*
+/stub-gen
+/stub-generator/target
+/*.stubs.php

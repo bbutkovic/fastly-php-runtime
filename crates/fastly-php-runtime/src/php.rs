@@ -5,6 +5,7 @@ use crate::fastly_ce::manager::response;
 
 use self::sapi::init_fastly_ce_sapi;
 pub use compilation::compile_from_stdin;
+use ext_php_rs::describe::ToStub;
 use php_sys::*;
 use std::ptr::{null_mut, NonNull};
 
@@ -42,4 +43,13 @@ pub fn init() {
     unsafe {
         php_request_startup();
     }
+}
+
+pub fn generate_fastly_ce_stubs() -> String {
+    let description = fastly_ce_module::ext_php_rs_describe_module();
+
+    description
+        .module
+        .to_stub()
+        .expect("stub generation failed")
 }
