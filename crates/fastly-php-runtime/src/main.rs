@@ -20,10 +20,12 @@ pub fn main() {
 
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
+    #[cfg(debug_assertions)]
     println!("Initializing PHP");
 
     init_php();
 
+    #[cfg(debug_assertions)]
     println!("Loading and compiling PHP from STDIN");
 
     let op_array = compile_from_stdin();
