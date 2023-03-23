@@ -60,12 +60,12 @@ impl ResponseHandle {
         }
     }
 
-    pub fn stream_response<'a>(&'a mut self, content: String) -> Result<&'a mut Self, ()> {
+    pub fn stream_response<'a>(&'a mut self, content: &[u8]) -> Result<&'a mut Self, ()> {
         match &mut self.state {
             ResponseState::Uninitialized => self.initialize_response().stream_response(content),
             ResponseState::Response(res) => {
                 let mut body = FastlyBodyHandle::new();
-                body.write_str(content.as_str());
+                body.write_bytes(content);
 
                 let res = res.take().unwrap();
                 let streaming_body = res.stream_to_client(body);
@@ -77,7 +77,7 @@ impl ResponseHandle {
             ResponseState::StreamingBodyResponse(streaming_body) => {
                 let mut streaming_body = streaming_body.take().unwrap();
 
-                streaming_body.write_str(content.as_str());
+                streaming_body.write_bytes(content);
 
                 self.state = ResponseState::StreamingBodyResponse(Some(streaming_body));
 
