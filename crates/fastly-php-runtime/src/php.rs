@@ -41,6 +41,7 @@ fn log_exceptions() {
 pub fn init() {
     init_fastly_ce_sapi();
     unsafe {
+        // zend_interned_strings_activate();
         php_request_startup();
     }
 }

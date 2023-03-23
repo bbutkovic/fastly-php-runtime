@@ -93,7 +93,8 @@ impl ResponseHandle {
     pub fn flush<'a>(&'a mut self) {
         match &mut self.state {
             ResponseState::Uninitialized => {
-                panic!("response not initialized")
+                // todo: nothing to do?
+                //panic!("response not initialized")
             }
             ResponseState::Response(_) => todo!(),
             ResponseState::StreamingBodyResponse(streaming_body) => {

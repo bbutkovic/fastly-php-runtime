@@ -14,3 +14,4 @@ php-sys = { path = "../php-sys" }
 fastly-ce-module = { path = "../fastly-ce-module" }
 ext-php-rs = "*"
 anyhow = "*"
+url = "*"
