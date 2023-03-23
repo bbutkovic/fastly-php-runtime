@@ -80,7 +80,6 @@ NM := ${PHP_WASI_SDK}/bin/llvm-nm
 
 OPT_LEVEL ?=3
 
-# todo: clean up this mess (:
 runtime.wasm: export PHP_WASI_SDK :=${PHP_WASI_SDK}
 runtime.wasm: export PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK_SYSROOT}
 runtime.wasm: export PHP_LIBCLANG_RT_PATH :=${PHP_WASI_LIBCLANG_RT_PATH}
