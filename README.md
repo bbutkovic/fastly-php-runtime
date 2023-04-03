@@ -120,4 +120,4 @@ on your development machine.
 
 ## License
 
-[MIT License](https://github.com/bbutkovic/fastly-php-runtime/blob/main/LICENSE)
+[MIT License](LICENSE)
