@@ -11,13 +11,8 @@ use php_sys::{
 
 use crate::util::cstr;
 
+#[derive(Default)]
 struct ReaderHandle(Option<Reader<Bytes>>, usize);
-
-impl Default for ReaderHandle {
-    fn default() -> Self {
-        Self(None, 0)
-    }
-}
 
 impl ReaderHandle {
     fn init(&mut self, buffer: Bytes) {
@@ -120,7 +115,7 @@ unsafe extern "C" fn stdin_reader(
         return 0;
     }
 
-    let buffer: &mut [u8] = std::slice::from_raw_parts_mut(buf as *mut u8, len as usize);
+    let buffer: &mut [u8] = std::slice::from_raw_parts_mut(buf as *mut u8, len);
 
     let result = read_stdin_into_buffer(buffer).expect("could not read into buffer");
 

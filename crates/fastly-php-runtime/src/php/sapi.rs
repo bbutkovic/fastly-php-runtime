@@ -1,8 +1,6 @@
-use std::arch::asm;
-
 use php_sys::{
-    _sapi_module_struct, _zend_module_entry, executor_globals, php_module_startup,
-    php_register_variable, sapi_header_struct, sapi_startup, zval, PHP_VERSION,
+    _sapi_module_struct, _zend_module_entry, php_module_startup, php_register_variable,
+    sapi_header_struct, sapi_startup,
 };
 
 use crate::{
@@ -79,7 +77,7 @@ unsafe extern "C" fn fastly_ce_sapi_read_post(
 
     let mut request = request();
 
-    let buf: &mut [u8] = std::slice::from_raw_parts_mut(buffer as *mut u8, count_bytes as usize);
+    let buf: &mut [u8] = std::slice::from_raw_parts_mut(buffer as *mut u8, count_bytes);
 
     request
         .read_body_chunk(buf)
@@ -98,10 +96,11 @@ unsafe extern "C" fn fastly_ce_sapi_register_server_vars(
         register_php_variable("REMOTE_ADDR", remote_addr.as_str(), track_vars_array);
     }
 
-    let server_software = format!(
-        "Fastly Compute@Edge/{}",
-        String::from_utf8(PHP_VERSION.to_vec()).unwrap()
-    );
+    // todo: this breaks PHP
+    // let server_software = format!(
+    //     "Fastly Compute@Edge/{}",
+    //     String::from_utf8(PHP_VERSION.to_vec()).unwrap()
+    // );
 
     // register_php_variable(
     //     "SERVER_SOFTWARE",
@@ -125,7 +124,7 @@ unsafe extern "C" fn fastly_ce_sapi_register_server_vars(
         let name = name.to_string();
         let value = value.to_string();
 
-        let name = format!("HTTP_{}", name.replace("-", "_").to_uppercase());
+        let name = format!("HTTP_{}", name.replace('-', "_").to_uppercase());
 
         register_php_variable(name.as_str(), value.as_str(), track_vars_array);
     }
@@ -153,18 +152,13 @@ unsafe extern "C" fn fastly_ce_sapi_send_header(
         .to_str()
         .unwrap();
 
-    match header
+    if let Some((name, value)) = header
         .split_once(": ")
         .map(|(name, value)| (name.to_string(), value.to_string()))
     {
-        Some((name, value)) => {
-            let mut response = response();
+        let mut response = response();
 
-            response.send_header(name, value).unwrap();
-        }
-        None => {
-            // todo handle response code?
-        }
+        response.send_header(name, value).unwrap();
     }
 }
 

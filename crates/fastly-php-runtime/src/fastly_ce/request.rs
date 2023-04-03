@@ -3,11 +3,7 @@ use std::{
     net::IpAddr,
 };
 
-use fastly::{
-    handle::{client_ip_addr, RequestHandle as FastlyRequestHandle},
-    http::{HeaderName, HeaderValue},
-    Body, Request,
-};
+use fastly::{handle::client_ip_addr, Request};
 use url::Position;
 
 pub struct RequestHandle {
@@ -27,7 +23,7 @@ impl RequestHandle {
         }
     }
 
-    fn initialize_request<'a>(&'a mut self) -> &'a mut Self {
+    fn initialize_request(&mut self) -> &mut Self {
         self.state = RequestState::Request(Some(Request::from_client()));
         self
     }
@@ -110,21 +106,22 @@ impl RequestHandle {
         }
     }
 
-    pub fn query_params(&mut self) -> Option<Vec<(String, String)>> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().query_params(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
+    // todo
+    // pub fn query_params(&mut self) -> Option<Vec<(String, String)>> {
+    //     match &mut self.state {
+    //         RequestState::Uninitialized => self.initialize_request().query_params(),
+    //         RequestState::Request(req) => {
+    //             let req = req.take().unwrap();
 
-                let query_params = req.get_query::<Vec<(String, String)>>();
+    //             let query_params = req.get_query::<Vec<(String, String)>>();
 
-                self.state = RequestState::Request(Some(req));
+    //             self.state = RequestState::Request(Some(req));
 
-                query_params.ok()
-            }
-            _ => unreachable!(),
-        }
-    }
+    //             query_params.ok()
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
 
     pub fn read_body_chunk(&mut self, buf: &mut [u8]) -> anyhow::Result<usize> {
         match &mut self.state {

@@ -1,7 +1,7 @@
 extern crate bindgen;
 
 use std::env::var;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use regex::Regex;
@@ -77,12 +77,12 @@ macro_rules! include_flag {
 
 fn generate_bindings(
     wrapper: String,
-    sources_root: &PathBuf,
+    sources_root: &Path,
     out_file: PathBuf,
     wasi_sdk_sysroot: Option<PathBuf>,
 ) {
     // fix for newer bindgen versions that pass --target parameter to clang
-    if !var("CLANG_PATH").is_ok() {
+    if var("CLANG_PATH").is_err() {
         if let Some(wasi_sdk_sysroot) = wasi_sdk_sysroot {
             std::env::set_var(
                 "CLANG_PATH",

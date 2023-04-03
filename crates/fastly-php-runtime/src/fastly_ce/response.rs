@@ -16,7 +16,7 @@ enum ResponseState {
     Uninitialized,
     Response(Option<FastlyResponseHandle>),
     StreamingBodyResponse(Option<FastlyStreamingBodyHandle>),
-    Finished,
+    // Finished,
 }
 
 impl ResponseHandle {
@@ -26,19 +26,20 @@ impl ResponseHandle {
         }
     }
 
-    fn initialize_response<'a>(&'a mut self) -> &'a mut Self {
+    fn initialize_response(&mut self) -> &mut Self {
         self.state = ResponseState::Response(Some(FastlyResponseHandle::new()));
         self
     }
 
-    fn initialized_response<'a>(&'a mut self) -> &'a mut Self {
-        match &self.state {
-            ResponseState::Uninitialized => self.initialize_response(),
-            _ => self,
-        }
-    }
+    // todo: refactor
+    // fn initialized_response(&mut self) -> &mut Self {
+    //     match &self.state {
+    //         ResponseState::Uninitialized => self.initialize_response(),
+    //         _ => self,
+    //     }
+    // }
 
-    pub fn send_header<'a>(&'a mut self, name: String, value: String) -> Result<&'a mut Self, ()> {
+    pub fn send_header(&mut self, name: String, value: String) -> Result<&mut Self, ()> {
         match &mut self.state {
             ResponseState::Uninitialized => self.initialize_response().send_header(name, value),
             ResponseState::Response(res) => {
@@ -55,8 +56,7 @@ impl ResponseHandle {
             ResponseState::StreamingBodyResponse(_) => {
                 // todo: change this to error
                 panic!("response body already started streaming")
-            }
-            ResponseState::Finished => panic!("response finished"),
+            } // todo: ResponseState::Finished => panic!("response finished"),
         }
     }
 
@@ -82,15 +82,14 @@ impl ResponseHandle {
                 self.state = ResponseState::StreamingBodyResponse(Some(streaming_body));
 
                 Ok(self)
-            }
-            ResponseState::Finished => {
-                panic!("response finished already");
-            }
+            } // todo: ResponseState::Finished => {
+              //     panic!("response finished already");
+              // }
         }
     }
 
     // todo: clean this up
-    pub fn flush<'a>(&'a mut self) {
+    pub fn flush(&mut self) {
         match &mut self.state {
             ResponseState::Uninitialized => {
                 // todo: nothing to do?
@@ -101,8 +100,7 @@ impl ResponseHandle {
                 let mut streaming_body = streaming_body.take().unwrap();
 
                 streaming_body.flush().unwrap();
-            }
-            ResponseState::Finished => todo!(),
+            } // todo: ResponseState::Finished => todo!(),
         }
     }
 }
