@@ -4,7 +4,6 @@ use std::{
 };
 
 use fastly::{handle::client_ip_addr, Request};
-use url::Position;
 
 pub struct RequestHandle {
     state: RequestState,
@@ -80,7 +79,7 @@ impl RequestHandle {
             RequestState::Request(req) => {
                 let req = req.take().unwrap();
 
-                let uri = req.get_url()[Position::BeforePath..].to_string();
+                let uri = req.get_url().to_string();
 
                 self.state = RequestState::Request(Some(req));
 
@@ -122,6 +121,22 @@ impl RequestHandle {
     //         _ => unreachable!(),
     //     }
     // }
+
+    pub fn query_string(&mut self) -> Option<String> {
+        match &mut self.state {
+            RequestState::Uninitialized => self.initialize_request().query_string(),
+            RequestState::Request(req) => {
+                let req = req.take().unwrap();
+
+                let query_string = req.get_url().query().map(|s| s.to_string());
+
+                self.state = RequestState::Request(Some(req));
+
+                query_string
+            }
+            _ => unreachable!(),
+        }
+    }
 
     pub fn read_body_chunk(&mut self, buf: &mut [u8]) -> anyhow::Result<usize> {
         match &mut self.state {

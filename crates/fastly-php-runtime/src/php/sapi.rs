@@ -26,7 +26,7 @@ pub fn init_fastly_ce_sapi() {
         name: name.as_ptr() as *mut i8,
         pretty_name: pretty_name.as_ptr() as *mut i8,
         startup: Some(fastly_ce_sapi_startup),
-        shutdown: None,
+        shutdown: Some(fastly_ce_sapi_shutdown),
         activate: None,
         deactivate: None,
         ub_write: Some(fastly_ce_sapi_ub_write),
@@ -183,6 +183,16 @@ unsafe extern "C" fn fastly_ce_sapi_startup(
     startup_res
 }
 
+unsafe extern "C" fn fastly_ce_sapi_shutdown(
+    _sapi_module: *mut _sapi_module_struct,
+) -> ::std::os::raw::c_int {
+    let mut response = response();
+
+    response.flush();
+
+    1
+}
+
 #[no_mangle]
 unsafe extern "C" fn fastly_ce_sapi_ub_write(
     str: *const ::std::os::raw::c_char,
@@ -190,7 +200,7 @@ unsafe extern "C" fn fastly_ce_sapi_ub_write(
 ) -> usize {
     #[cfg(debug_assertions)]
     println!("Fastly C@E ub_write (len {}): {:p}", str_length, str);
-    let ub_write_bytes = std::ffi::CStr::from_ptr(str).to_bytes();
+    let ub_write_bytes = std::ffi::CStr::from_ptr(str).to_str().unwrap().as_bytes();
 
     let mut response = response();
 

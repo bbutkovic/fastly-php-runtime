@@ -42,12 +42,12 @@ thread_local! {
     static STDIN_READER_HANDLE: RefCell<ReaderHandle> = RefCell::new(ReaderHandle::default());
 }
 
-fn initialize_stdin_reader_handle() {
-    STDIN_READER_HANDLE.with(|reader_handle| {
-        let input: Bytes = stdin().bytes().map(|b| b.unwrap()).collect();
-        (*reader_handle.borrow_mut()).init(input);
-    });
-}
+// fn initialize_stdin_reader_handle() {
+//     STDIN_READER_HANDLE.with(|reader_handle| {
+//         let input: Bytes = stdin().bytes().map(|b| b.unwrap()).collect();
+//         (*reader_handle.borrow_mut()).init(input);
+//     });
+// }
 
 fn read_stdin_into_buffer(buf: &mut [u8]) -> anyhow::Result<usize> {
     STDIN_READER_HANDLE
@@ -59,43 +59,71 @@ fn get_stdin_size() -> usize {
     STDIN_READER_HANDLE.with(|reader_handle| (*reader_handle.borrow()).size())
 }
 
-pub fn compile_from_stdin() -> *mut zend_op_array {
-    initialize_stdin_reader_handle();
+// TODO
+// pub fn compile_from_stdin(code: Bytes) -> *mut zend_op_array {
+//     initialize_stdin_reader_handle();
 
-    let compile_file = unsafe { zend_compile_file.unwrap() };
-    let init_string = unsafe { zend_string_init_interned.unwrap() };
+//     let compile_file = unsafe { zend_compile_file.unwrap() };
+//     let init_string = unsafe { zend_string_init_interned.unwrap() };
 
-    let filename = cstr!("index.php");
-    let filename_len = filename.to_str().unwrap().len();
+//     let filename = cstr!("index.php");
+//     let filename_len = filename.to_str().unwrap().len();
 
-    let primary_file: zend_file_handle = zend_file_handle {
-        handle: _zend_file_handle__bindgen_ty_1 {
-            stream: zend_stream {
-                reader: Some(stdin_reader),
-                fsizer: Some(stdin_fsizer),
-                closer: Some(stdin_closer),
-                isatty: 0,
-                handle: std::ptr::null_mut(),
-            },
-        },
-        filename: unsafe { init_string(filename.as_ptr(), filename_len, true) },
-        opened_path: std::ptr::null_mut(),
-        type_: zend_stream_type_ZEND_HANDLE_STREAM as u8,
-        primary_script: true,
-        in_list: false,
-        buf: std::ptr::null_mut(),
-        len: 0,
-    };
+//     let primary_file: zend_file_handle = zend_file_handle {
+//         handle: _zend_file_handle__bindgen_ty_1 {
+//             stream: zend_stream {
+//                 reader: Some(stdin_reader),
+//                 fsizer: Some(stdin_fsizer),
+//                 closer: Some(stdin_closer),
+//                 isatty: 0,
+//                 handle: std::ptr::null_mut(),
+//             },
+//         },
+//         filename: unsafe { init_string(filename.as_ptr(), filename_len, true) },
+//         opened_path: std::ptr::null_mut(),
+//         type_: zend_stream_type_ZEND_HANDLE_STREAM as u8,
+//         primary_script: true,
+//         in_list: false,
+//         buf: std::ptr::null_mut(),
+//         len: 0,
+//     };
 
-    let primary = Box::into_raw(Box::new(primary_file));
+//     let primary = Box::into_raw(Box::new(primary_file));
 
-    let op_array = unsafe { compile_file(primary, 8) };
+//     // orig_compiler_options = CG(compiler_options);
+//     // CG(compiler_options) |= ZEND_COMPILE_HANDLE_OP_ARRAY;
+//     // CG(compiler_options) |= ZEND_COMPILE_IGNORE_INTERNAL_CLASSES;
+//     // CG(compiler_options) |= ZEND_COMPILE_DELAYED_BINDING;
+//     // CG(compiler_options) |= ZEND_COMPILE_NO_CONSTANT_SUBSTITUTION;
+//     // CG(compiler_options) |= ZEND_COMPILE_IGNORE_OTHER_FILES;
+//     // if (ZCG(accel_directives).file_cache) {
+//     //     CG(compiler_options) |= ZEND_COMPILE_WITH_FILE_CACHE;
+//     // }
+//     // op_array = *op_array_p = accelerator_orig_compile_file(file_handle, type);
+//     // CG(compiler_options) = orig_compiler_options;
 
-    #[cfg(debug_assertions)]
-    println!("PHP compilation finished: {:?}", op_array);
+//     // unsafe {
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_HANDLE_OP_ARRAY;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_IGNORE_INTERNAL_CLASSES;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_DELAYED_BINDING;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_NO_CONSTANT_SUBSTITUTION;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_IGNORE_OTHER_FILES;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_WITHOUT_EXECUTION;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_PRELOAD;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_HANDLE_OP_ARRAY;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_DELAYED_BINDING;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_NO_CONSTANT_SUBSTITUTION;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_IGNORE_OTHER_FILES;
+//     //     compiler_globals.compiler_options |= ZEND_COMPILE_NO_PERSISTENT_CONSTANT_SUBSTITUTION
+//     // }
 
-    op_array
-}
+//     let op_array = unsafe { compile_file(primary, 8) };
+
+//     #[cfg(debug_assertions)]
+//     println!("PHP compilation finished: {:?}", op_array);
+
+//     op_array
+// }
 
 #[no_mangle]
 unsafe extern "C" fn stdin_reader(
