@@ -1,5 +1,6 @@
 use std::{io::Write, str::FromStr};
 
+use anyhow::{bail, Error, Ok, Result};
 use fastly::{
     handle::{
         BodyHandle as FastlyBodyHandle, ResponseHandle as FastlyResponseHandle,
@@ -9,99 +10,115 @@ use fastly::{
 };
 
 pub struct ResponseHandle {
-    state: ResponseState,
+    response: ResponseState,
+    body: Body,
 }
 
 enum ResponseState {
     Uninitialized,
-    Response(Option<FastlyResponseHandle>),
-    StreamingBodyResponse(Option<FastlyStreamingBodyHandle>),
+    Initialized(FastlyResponseHandle),
+    Used,
+}
+
+impl ResponseState {
+    fn new() -> Self {
+        Self::Uninitialized
+    }
+
+    fn try_borrow_mut(&mut self) -> Result<&mut FastlyResponseHandle> {
+        match self {
+            Self::Uninitialized => {
+                let res = FastlyResponseHandle::new();
+                *self = Self::Initialized(res);
+
+                self.try_borrow_mut()
+            }
+            Self::Initialized(ref mut res) => Ok(res),
+            Self::Used => bail!("Fastly Response Handle used"),
+        }
+    }
+
+    fn take(&mut self) -> Result<FastlyResponseHandle> {
+        match std::mem::replace(self, Self::Used) {
+            Self::Uninitialized => Ok(FastlyResponseHandle::new()),
+            Self::Initialized(res) => Ok(res),
+            Self::Used => bail!("fastly response handle taken"),
+        }
+    }
+}
+
+enum Body {
+    Uninitialized,
+    Streaming(FastlyStreamingBodyHandle),
     Finished,
+}
+
+impl Body {
+    pub fn new() -> Self {
+        Self::Uninitialized
+    }
+
+    pub fn stream(&mut self, res: &mut ResponseState, content: &[u8]) -> Result<()> {
+        match self {
+            Self::Finished => bail!("response already finished"),
+            Self::Uninitialized => {
+                let res = res.take().unwrap();
+
+                let mut body = FastlyBodyHandle::new();
+
+                body.write_bytes(content);
+
+                *self = Self::Streaming(res.stream_to_client(body));
+
+                Ok(())
+            }
+            Self::Streaming(body) => {
+                body.write_bytes(content);
+
+                Ok(())
+            }
+        }
+    }
+
+    pub fn flush(&mut self) -> Result<()> {
+        match std::mem::replace(self, Self::Finished) {
+            Self::Uninitialized | Self::Finished => Ok(()),
+            Self::Streaming(mut body) => body.flush().map_err(Error::from),
+        }
+    }
 }
 
 impl ResponseHandle {
     pub fn new() -> Self {
         Self {
-            state: ResponseState::Uninitialized,
+            response: ResponseState::new(),
+            body: Body::new(),
         }
     }
 
-    fn initialize_response<'a>(&'a mut self) -> &'a mut Self {
-        self.state = ResponseState::Response(Some(FastlyResponseHandle::new()));
-        self
+    pub fn send_header(&mut self, name: String, value: String) -> Result<()> {
+        let response = self.response.try_borrow_mut().unwrap();
+
+        let name = HeaderName::from_str(name.as_str()).unwrap();
+        let value = HeaderValue::from_str(value.as_str()).unwrap();
+        response.insert_header(&name, &value);
+
+        Ok(())
     }
 
-    fn initialized_response<'a>(&'a mut self) -> &'a mut Self {
-        match &self.state {
-            ResponseState::Uninitialized => self.initialize_response(),
-            _ => self,
-        }
+    pub fn stream_response(&mut self, content: &[u8]) -> Result<()> {
+        self.body.stream(&mut self.response, content)
     }
 
-    pub fn send_header<'a>(&'a mut self, name: String, value: String) -> Result<&'a mut Self, ()> {
-        match &mut self.state {
-            ResponseState::Uninitialized => self.initialize_response().send_header(name, value),
-            ResponseState::Response(res) => {
-                let name = HeaderName::from_str(name.as_str()).unwrap();
-                let value = HeaderValue::from_str(value.as_str()).unwrap();
-
-                let mut res = res.take().unwrap();
-                res.append_header(&name, &value);
-
-                self.state = ResponseState::Response(Some(res));
-
-                Ok(self)
-            }
-            ResponseState::StreamingBodyResponse(_) => {
-                // todo: change this to error
-                panic!("response body already started streaming")
-            }
-            ResponseState::Finished => panic!("response finished"),
-        }
+    pub fn flush(&mut self) -> Result<()> {
+        self.body.flush()
     }
+}
 
-    pub fn stream_response<'a>(&'a mut self, content: String) -> Result<&'a mut Self, ()> {
-        match &mut self.state {
-            ResponseState::Uninitialized => self.initialize_response().stream_response(content),
-            ResponseState::Response(res) => {
-                let mut body = FastlyBodyHandle::new();
-                body.write_str(content.as_str());
-
-                let res = res.take().unwrap();
-                let streaming_body = res.stream_to_client(body);
-
-                self.state = ResponseState::StreamingBodyResponse(Some(streaming_body));
-
-                Ok(self)
-            }
-            ResponseState::StreamingBodyResponse(streaming_body) => {
-                let mut streaming_body = streaming_body.take().unwrap();
-
-                streaming_body.write_str(content.as_str());
-
-                self.state = ResponseState::StreamingBodyResponse(Some(streaming_body));
-
-                Ok(self)
-            }
-            ResponseState::Finished => {
-                panic!("response finished already");
-            }
-        }
-    }
-
-    // todo: clean this up
-    pub fn flush<'a>(&'a mut self) {
-        match &mut self.state {
-            ResponseState::Uninitialized => {
-                panic!("response not initialized")
-            }
-            ResponseState::Response(_) => todo!(),
-            ResponseState::StreamingBodyResponse(streaming_body) => {
-                let mut streaming_body = streaming_body.take().unwrap();
-
-                streaming_body.flush().unwrap();
-            }
-            ResponseState::Finished => todo!(),
+impl Drop for ResponseHandle {
+    fn drop(&mut self) {
+        if self.flush().is_err() {
+            println!("cannot flush")
         }
     }
 }

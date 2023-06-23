@@ -80,7 +80,6 @@ NM := ${PHP_WASI_SDK}/bin/llvm-nm
 
 OPT_LEVEL ?=3
 
-# todo: clean up this mess (:
 runtime.wasm: export PHP_WASI_SDK :=${PHP_WASI_SDK}
 runtime.wasm: export PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK_SYSROOT}
 runtime.wasm: export PHP_LIBCLANG_RT_PATH :=${PHP_WASI_LIBCLANG_RT_PATH}
@@ -101,6 +100,29 @@ runtime.wasm: export PHP_THREAD_SAFETY :=disabled
 runtime.wasm: export RUSTC_WRAPPER :=${RUSTC_WRAPPER}
 runtime.wasm: deps/php/libs/libphp.a
 	cargo build $(release) && cp target/wasm32-wasi/$(target)/fastly-php-runtime.wasm runtime.wasm
+
+.PHONY: clippy
+clippy: export PHP_WASI_SDK :=${PHP_WASI_SDK}
+clippy: export PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK_SYSROOT}
+clippy: export PHP_LIBCLANG_RT_PATH :=${PHP_WASI_LIBCLANG_RT_PATH}
+clippy: export PHP_WASI_EMULATORS_PATH :=${PHP_WASI_EMULATORS_PATH}
+clippy: export CLANG_PATH :=${CLANG_PATH}
+clippy: export CC :=${CC}
+clippy: export OPT_LEVEL :=${OPT_LEVEL}
+clippy: export PHP_DEBUG :=${PHP_DEBUG}
+clippy: export ZEND_EXTRA_LIBS :=fastlyce
+clippy: export PHP_SRC_ROOT :=${PHP_SRC_ROOT}
+clippy: export PHP_INCLUDES :=${PHP_INCLUDES}
+clippy: export PHP_DEFINES :=${PHP_DEFINES}
+clippy: export PHP_LIBPHP_PATH :=${PHP_SRC_ROOT}/libs
+clippy: export PHP_CONFIGURE_FROM_ENV :=true
+clippy: export PHP_PHP_API :=20210902
+clippy: export PHP_DEBUG_BUILD :=no
+clippy: export PHP_THREAD_SAFETY :=disabled
+clippy: export RUSTC_WRAPPER :=${RUSTC_WRAPPER}
+clippy: deps/php/libs/libphp.a
+	cargo clippy
+
 
 runtime.wat: runtime.wasm
 	wasm2wat runtime.wasm > runtime.wat

@@ -458,7 +458,9 @@ dependencies = [
  "fastly-ce-module",
  "fastly-sys 0.9.1",
  "lazy_static",
+ "once_cell",
  "php-sys",
+ "url",
 ]
 
 [[package]]
