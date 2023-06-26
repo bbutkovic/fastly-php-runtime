@@ -3,28 +3,88 @@ use std::{
     net::IpAddr,
 };
 
-use fastly::{handle::client_ip_addr, Request};
+use anyhow::{bail, Result};
+use fastly::{handle::client_ip_addr, Request as FastlyRequest};
 
 pub struct RequestHandle {
-    state: RequestState,
+    request: RequestState,
+    body: Body,
 }
 
 enum RequestState {
     Uninitialized,
-    Request(Option<Request>),
-    ReadingBody(Option<Cursor<Vec<u8>>>),
+    Initialized(FastlyRequest),
+    Used,
+}
+
+enum Body {
+    Uninitialized,
+    Reading(Cursor<Vec<u8>>),
+    // todo?
+    Finished,
+}
+
+impl Body {
+    pub fn new() -> Self {
+        Self::Uninitialized
+    }
+
+    pub fn read(&mut self, req: &mut RequestState, buffer: &mut [u8]) -> Result<usize> {
+        match self {
+            Self::Finished => bail!("response already finished"),
+            Self::Uninitialized => {
+                let mut req = req.take().unwrap();
+
+                let mut cursor = Cursor::new(req.take_body_bytes());
+
+                let read = cursor.read(buffer)?;
+
+                *self = Self::Reading(cursor);
+
+                Ok(read)
+            }
+            Self::Reading(cursor) => Ok(cursor.read(buffer)?),
+        }
+    }
+}
+
+impl RequestState {
+    fn new() -> Self {
+        Self::Uninitialized
+    }
+
+    fn try_borrow_mut(&mut self) -> Result<&mut FastlyRequest> {
+        match self {
+            Self::Uninitialized => {
+                let res = FastlyRequest::from_client();
+                *self = Self::Initialized(res);
+
+                self.try_borrow_mut()
+            }
+            Self::Initialized(ref mut res) => Ok(res),
+            Self::Used => bail!("fastly request handle taken"),
+        }
+    }
+
+    fn try_borrow(&mut self) -> Result<&FastlyRequest> {
+        self.try_borrow_mut().map(|req| &*req)
+    }
+
+    fn take(&mut self) -> Result<FastlyRequest> {
+        match std::mem::replace(self, Self::Used) {
+            Self::Uninitialized => Ok(FastlyRequest::from_client()),
+            Self::Initialized(res) => Ok(res),
+            Self::Used => bail!("fastly request handle taken"),
+        }
+    }
 }
 
 impl RequestHandle {
     pub fn new() -> Self {
         Self {
-            state: RequestState::Uninitialized,
+            request: RequestState::new(),
+            body: Body::new(),
         }
-    }
-
-    fn initialize_request(&mut self) -> &mut Self {
-        self.state = RequestState::Request(Some(Request::from_client()));
-        self
     }
 
     pub fn remote_address(&mut self) -> Option<IpAddr> {
@@ -32,77 +92,38 @@ impl RequestHandle {
     }
 
     pub fn headers(&mut self) -> Vec<(String, String)> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().headers(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
-
-                let headers: Vec<(String, String)> = req
-                    .get_headers()
-                    .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_string()))
-                    .collect();
-
-                self.state = RequestState::Request(Some(req));
-
-                headers
-            }
-            _ => unreachable!(),
-        }
+        (*self
+            .request
+            .try_borrow()
+            .unwrap()
+            .get_headers()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_string()))
+            .collect::<Vec<_>>())
+        .to_vec()
     }
 
     pub fn http_version(&mut self) -> Option<String> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().http_version(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
-
-                let version = match req.get_version() {
-                    fastly::http::Version::HTTP_09 => Some("0.9"),
-                    fastly::http::Version::HTTP_10 => Some("1.0"),
-                    fastly::http::Version::HTTP_11 => Some("1.1"),
-                    fastly::http::Version::HTTP_2 => Some("2.0"),
-                    fastly::http::Version::HTTP_3 => Some("3.0"),
-                    _ => None,
-                };
-
-                self.state = RequestState::Request(Some(req));
-
-                version.map(|v| v.to_string())
-            }
-            _ => unreachable!(),
+        match self.request.try_borrow().unwrap().get_version() {
+            fastly::http::Version::HTTP_09 => Some("0.9"),
+            fastly::http::Version::HTTP_10 => Some("1.0"),
+            fastly::http::Version::HTTP_11 => Some("1.1"),
+            fastly::http::Version::HTTP_2 => Some("2.0"),
+            fastly::http::Version::HTTP_3 => Some("3.0"),
+            _ => None,
         }
+        .map(|v| v.to_string())
     }
 
     pub fn request_uri(&mut self) -> Option<String> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().request_uri(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
-
-                let uri = req.get_url().to_string();
-
-                self.state = RequestState::Request(Some(req));
-
-                Some(uri)
-            }
-            _ => unreachable!(),
-        }
+        Some(self.request.try_borrow().unwrap().get_url().to_string())
     }
 
     pub fn request_method(&mut self) -> String {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().request_method(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
-
-                let method = req.get_method_str().to_string();
-
-                self.state = RequestState::Request(Some(req));
-
-                method
-            }
-            _ => unreachable!(),
-        }
+        self.request
+            .try_borrow()
+            .unwrap()
+            .get_method_str()
+            .to_string()
     }
 
     // todo
@@ -123,39 +144,16 @@ impl RequestHandle {
     // }
 
     pub fn query_string(&mut self) -> Option<String> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().query_string(),
-            RequestState::Request(req) => {
-                let req = req.take().unwrap();
-
-                let query_string = req.get_url().query().map(|s| s.to_string());
-
-                self.state = RequestState::Request(Some(req));
-
-                query_string
-            }
-            _ => unreachable!(),
-        }
+        self.request
+            .try_borrow()
+            .unwrap()
+            .get_url()
+            .query()
+            .map(|s| s.to_string())
     }
 
     pub fn read_body_chunk(&mut self, buf: &mut [u8]) -> anyhow::Result<usize> {
-        match &mut self.state {
-            RequestState::Uninitialized => self.initialize_request().read_body_chunk(buf),
-            RequestState::Request(req) => {
-                let mut req = req.take().unwrap();
-
-                let body = req.take_body().into_bytes();
-
-                self.state = RequestState::ReadingBody(Some(Cursor::new(body)));
-
-                self.read_body_chunk(buf)
-            }
-            RequestState::ReadingBody(body) => {
-                let mut body = body.take().unwrap();
-
-                body.read(buf).map_err(anyhow::Error::from)
-            }
-        }
+        self.body.read(&mut self.request, buf)
     }
 
     // pub fn post_params(&mut self) -> Option<Vec<(String, String)>> {
