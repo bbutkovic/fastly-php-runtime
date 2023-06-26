@@ -35,7 +35,7 @@ fastly-compute-php bundle index.php
 Alternatively, you can add `bbutkovic/fastly-php-runtime-tool` as a Composer dependency to your project:
 
 ```console
-composer require --dev "bbutkovic/fastly-php-runtime-tool
+composer require --dev bbutkovic/fastly-php-runtime-tool
 ```
 
 The [starter kit](#starter-kit) takes care of this for you:
