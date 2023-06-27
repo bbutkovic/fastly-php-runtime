@@ -1,5 +1,5 @@
 use ext_php_rs::prelude::*;
-use fastly::{geo::Geo, Request, Response};
+use fastly::{geo::Geo, ConfigStore, Request, Response};
 use serde_variant::to_variant_name;
 use std::{net::IpAddr, str::FromStr};
 
@@ -117,6 +117,26 @@ impl FastlyGeo {
 }
 
 // -- Fastly Geolocation
+
+// Fastly Dictionary
+
+#[php_class(name = "FastlyCE\\ConfigStore")]
+pub struct FastlyConfigStore(ConfigStore);
+
+#[php_impl]
+impl FastlyConfigStore {
+    pub fn open(store: String) -> PhpResult<Self> {
+        ConfigStore::try_open(store.as_str())
+            .map(|store| Self(store))
+            .map_err(|err| PhpException::default(err.to_string()))
+    }
+
+    pub fn get(&self, key: String) -> Option<String> {
+        self.0.get(key.as_str())
+    }
+}
+
+// -- Fastly Dictionary
 
 // Fastly Response
 
