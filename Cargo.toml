@@ -6,6 +6,7 @@ members = [
 
 exclude = [
     "integration-tests",
+    "stub-generator",
 ]
 
 [profile.release]

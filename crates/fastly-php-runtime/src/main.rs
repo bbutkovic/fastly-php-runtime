@@ -1,36 +1,45 @@
-use std::{cell::RefCell, ptr::null_mut};
+use std::io::{stdin, Read};
 
-use php::{compile_from_stdin, execute_compiled, init as init_php};
+use bytes::Bytes;
+use php::generate_fastly_ce_stubs;
+
+use crate::php::Runtime;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 mod fastly_ce;
 mod php;
 mod util;
 
-thread_local! {
-    static OP_ARRAY: RefCell<*mut php_sys::zend_op_array> = RefCell::new(null_mut());
-}
+static INSTANCE: Lazy<Mutex<Runtime>> = Lazy::new(|| Mutex::new(Runtime::new()));
 
 pub fn main() {
+    #[cfg(debug_assertions)]
+    println!("Got request");
+
     fastly::init();
 
-    OP_ARRAY.with(|op_array| {
-        execute_compiled(*op_array.borrow());
-    });
+    INSTANCE
+        .lock()
+        .unwrap()
+        .exec()
+        .expect("runtime execution fail");
 }
 
 #[export_name = "wizer.initialize"]
-pub extern "C" fn init() {
-    println!("Initializing PHP");
+pub extern "C" fn load_code() {
+    #[cfg(debug_assertions)]
+    println!("Loading PHP code from STDIN");
 
-    init_php();
+    let code: Bytes = stdin().bytes().map(|b| b.unwrap()).collect();
 
-    println!("Loading and compiling PHP from STDIN");
+    INSTANCE.lock().unwrap().load(code);
+    println!("Code loaded");
+}
 
-    let op_array = compile_from_stdin();
+#[export_name = "generate_fastly_ce_stubs"]
+pub extern "C" fn generate_stubs() {
+    let stubs = generate_fastly_ce_stubs();
 
-    OP_ARRAY.with(|op_array_cell| {
-        *op_array_cell.borrow_mut() = op_array;
-    });
-
-    println!("Code loaded and compiled");
+    print!("{stubs}")
 }

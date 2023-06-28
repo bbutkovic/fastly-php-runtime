@@ -10,8 +10,15 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   build:
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     runs-on: ubuntu-latest
     steps:
+    - name: Run sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.2
+      with:
+        version: "v0.4.0"
+
     - uses: actions/checkout@v3
       with:
         submodules: recursive
@@ -27,14 +34,20 @@ jobs:
         echo "WASI_SDK_PATH=/opt/wasi-sdk" >> $GITHUB_ENV
 
     - name: Build runtime
-      run: make runtime.wasm WASI_SDK_PATH=$WASI_SDK_PATH numjobs=3
+      run: make all use_sccache=true WASI_SDK_PATH=$WASI_SDK_PATH numjobs=3
 
     - name: Upload runtime
       if: startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@v3
       with:
         name: runtime
-        path: runtime.wasm
+        path: |
+          runtime.wasm
+          fastly-php-runtime.stubs.php
+
+    - name: Run sccache stat for check
+      shell: bash
+      run: ${SCCACHE_PATH} --show-stats
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
@@ -52,4 +65,6 @@ jobs:
           prerelase: ${{ contains(github.ref, '-rc') || contains(github.ref, '-b') || contains(github.ref, '-a') }}
           fail_on_unmatched_files: true
           generate_release_notes: true
-          files: runtime.wasm
+          files: |
+            runtime.wasm
+            fastly-php-runtime.stubs.php

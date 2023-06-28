@@ -1,6 +1,7 @@
 .SUFFIXES:
 
 debug ?=
+use_sccache ?=
 
 ifdef debug
   release :=
@@ -54,6 +55,15 @@ CFLAGS :=\
   -static \
   --sysroot=${PHP_WASI_SDK_SYSROOT}
 
+ifdef use_sccache
+  RUSTC_WRAPPER :=sccache
+  SCCACHE_CLANG :=${CC}
+  CC := $(abspath ./util/sccache-clang)
+else
+  SCCACHE_CLANG :=
+  RUSTC_WRAPPER :=
+endif
+
 ifdef debug
 CFLAGS := $(CFLAGS) -g
 endif
@@ -70,7 +80,6 @@ NM := ${PHP_WASI_SDK}/bin/llvm-nm
 
 OPT_LEVEL ?=3
 
-# todo: clean up this mess (:
 runtime.wasm: export PHP_WASI_SDK :=${PHP_WASI_SDK}
 runtime.wasm: export PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK_SYSROOT}
 runtime.wasm: export PHP_LIBCLANG_RT_PATH :=${PHP_WASI_LIBCLANG_RT_PATH}
@@ -88,8 +97,32 @@ runtime.wasm: export PHP_CONFIGURE_FROM_ENV :=true
 runtime.wasm: export PHP_PHP_API :=20210902
 runtime.wasm: export PHP_DEBUG_BUILD :=no
 runtime.wasm: export PHP_THREAD_SAFETY :=disabled
+runtime.wasm: export RUSTC_WRAPPER :=${RUSTC_WRAPPER}
 runtime.wasm: deps/php/libs/libphp.a
 	cargo build $(release) && cp target/wasm32-wasi/$(target)/fastly-php-runtime.wasm runtime.wasm
+
+.PHONY: clippy
+clippy: export PHP_WASI_SDK :=${PHP_WASI_SDK}
+clippy: export PHP_WASI_SDK_SYSROOT :=${PHP_WASI_SDK_SYSROOT}
+clippy: export PHP_LIBCLANG_RT_PATH :=${PHP_WASI_LIBCLANG_RT_PATH}
+clippy: export PHP_WASI_EMULATORS_PATH :=${PHP_WASI_EMULATORS_PATH}
+clippy: export CLANG_PATH :=${CLANG_PATH}
+clippy: export CC :=${CC}
+clippy: export OPT_LEVEL :=${OPT_LEVEL}
+clippy: export PHP_DEBUG :=${PHP_DEBUG}
+clippy: export ZEND_EXTRA_LIBS :=fastlyce
+clippy: export PHP_SRC_ROOT :=${PHP_SRC_ROOT}
+clippy: export PHP_INCLUDES :=${PHP_INCLUDES}
+clippy: export PHP_DEFINES :=${PHP_DEFINES}
+clippy: export PHP_LIBPHP_PATH :=${PHP_SRC_ROOT}/libs
+clippy: export PHP_CONFIGURE_FROM_ENV :=true
+clippy: export PHP_PHP_API :=20210902
+clippy: export PHP_DEBUG_BUILD :=no
+clippy: export PHP_THREAD_SAFETY :=disabled
+clippy: export RUSTC_WRAPPER :=${RUSTC_WRAPPER}
+clippy: deps/php/libs/libphp.a
+	cargo clippy
+
 
 runtime.wat: runtime.wasm
 	wasm2wat runtime.wasm > runtime.wat
@@ -103,6 +136,7 @@ deps/php/Makefile: export CC := ${CC}
 deps/php/Makefile: export RANLIB := ${RANLIB}
 deps/php/Makefile: export AR := ${AR}
 deps/php/Makefile: export NM := ${NM}
+deps/php/Makefile: export SCCACHE_CLANG := ${SCCACHE_CLANG}
 deps/php/Makefile: | deps/php
 	cd deps/php && \
     ./buildconf --force && \
@@ -160,3 +194,13 @@ tests-clean:
 .PHONY: cargo-clean
 cargo-clean:
 	cargo clean
+
+fastly-php-runtime.stubs.php: runtime.wasm stub-gen
+	./stub-gen runtime.wasm > fastly-php-runtime.stubs.php
+
+stub-gen:
+	cargo build --target=$(HOST_TARGET_TRIPLE) --release --manifest-path=stub-generator/Cargo.toml && \
+  cp stub-generator/target/$(HOST_TARGET_TRIPLE)/release/stub-generator stub-gen
+
+.PHONY: all
+all: runtime.wasm fastly-php-runtime.stubs.php
