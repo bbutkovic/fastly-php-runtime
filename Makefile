@@ -173,7 +173,7 @@ deps/php/libs/libphp.a: deps/php/Makefile
 	cd deps/php && make ${numjobs_flag} libphp.la
 
 .PHONY: test
-test: runtime.wasm integration-test
+test: | runtime.wasm integration-test
 
 .PHONY: integration-test
 integration-test: integration-test-runner
