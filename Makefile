@@ -172,9 +172,28 @@ deps/php/libs/libphp.a: export NM := ${NM}
 deps/php/libs/libphp.a: deps/php/Makefile
 	cd deps/php && make ${numjobs_flag} libphp.la
 
-.PHONY: clean cargo-clean
-clean:
-	@rm -rf runtime.wasm deps/
+.PHONY: test
+test: | runtime.wasm integration-test
+
+.PHONY: integration-test
+integration-test: integration-test-runner
+	./integration-test-runner $(PWD)/integration-tests/fixtures $(PWD)/runtime.wasm
+
+integration-test-runner:
+	cargo build --target=$(HOST_TARGET_TRIPLE) --release --manifest-path=integration-tests/Cargo.toml && \
+  cp integration-tests/target/$(HOST_TARGET_TRIPLE)/release/integration-tests integration-test-runner
+
+.PHONY: clean
+clean: cargo-clean tests-clean
+	@rm -rf runtime.wasm runtime.wat deps/
+
+.PHONY: tests-clean
+tests-clean:
+	@rm -rf integration-test-runner integration-tests/target
+
+.PHONY: cargo-clean
+cargo-clean:
+	cargo clean
 
 fastly-php-runtime.stubs.php: runtime.wasm stub-gen
 	./stub-gen runtime.wasm > fastly-php-runtime.stubs.php
@@ -185,9 +204,3 @@ stub-gen:
 
 .PHONY: all
 all: runtime.wasm fastly-php-runtime.stubs.php
-
-.PHONY: test
-test: runtime.wasm integration-test
-
-cargo-clean: clean
-	cargo clean

@@ -20,6 +20,9 @@
 *.wat
 *.phar
 debugger*
+/integration-tests/fixtures/*/bundle.wasm
+/integration-tests/target
+/integration-test-runner
 /stub-gen
 /stub-generator/target
 /*.stubs.php

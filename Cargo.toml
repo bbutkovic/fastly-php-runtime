@@ -5,6 +5,7 @@ members = [
 ]
 
 exclude = [
+    "integration-tests",
     "stub-generator",
 ]
 

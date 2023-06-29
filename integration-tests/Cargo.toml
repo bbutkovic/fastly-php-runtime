@@ -1,0 +1,12 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glob = "0.3.1"
+reqwest = { version = "0.11.14", features = ["blocking"] }
+serde = "1.0.156"
+serde_derive = "1.0.156"
+serde_json = "1.0.94"
+tokio = { version = "1.26.0", features = ["full"] }
